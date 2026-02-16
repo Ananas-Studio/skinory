@@ -5,7 +5,7 @@
     "type": "module",
     "scripts": {
         "dev:web": "pnpm --filter web dev",
-        "dev:landing": "pnpm --filter landing dev -- --port 3001",
+        "dev:landing": "pnpm --filter landing exec next dev --port 3001",
         "cy:web": "cypress run --config-file cypress.config.ts --env project=web",
         "cy:landing": "cypress run --config-file cypress.config.ts --env project=landing",
         "cy:web:open": "cypress open --config-file cypress.config.ts --env project=web",
