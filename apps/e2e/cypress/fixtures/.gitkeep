@@ -1,0 +1,3 @@
+# E2E Fixtures
+# Place test fixture files (JSON, images, etc.) in this directory.
+# Access them via cy.fixture('filename') in your tests.

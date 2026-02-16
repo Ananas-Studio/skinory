@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "erasableSyntaxOnly": true,
+    "noFallthroughCasesInSwitch": true,
+    "types": ["cypress"],
+    "paths": {
+      "@web/*": ["./cypress/web/*"],
+      "@landing/*": ["./cypress/landing/*"],
+      "@support/*": ["./cypress/support/*"]
+    }
+  },
+  "include": ["cypress", "cypress.config.ts"]
+}

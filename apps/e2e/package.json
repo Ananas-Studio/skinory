@@ -1,0 +1,29 @@
+{
+    "name": "e2e",
+    "version": "0.0.1",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "dev:web": "pnpm --filter web dev",
+        "dev:landing": "pnpm --filter landing dev -- --port 3001",
+        "cy:web": "cypress run --config-file cypress.config.ts --env project=web",
+        "cy:landing": "cypress run --config-file cypress.config.ts --env project=landing",
+        "cy:web:open": "cypress open --config-file cypress.config.ts --env project=web",
+        "cy:landing:open": "cypress open --config-file cypress.config.ts --env project=landing",
+        "e2e:web": "start-server-and-test dev:web http://localhost:5173 cy:web",
+        "e2e:landing": "start-server-and-test dev:landing http://localhost:3001 cy:landing",
+        "e2e:web:open": "start-server-and-test dev:web http://localhost:5173 cy:web:open",
+        "e2e:landing:open": "start-server-and-test dev:landing http://localhost:3001 cy:landing:open",
+        "lint": "eslint .",
+        "typecheck": "tsc --noEmit"
+    },
+    "devDependencies": {
+        "@eslint/js": "^9.39.1",
+        "cypress": "^14.5.1",
+        "eslint": "^9.39.1",
+        "globals": "^16.5.0",
+        "start-server-and-test": "^2.1.3",
+        "typescript": "~5.9.3",
+        "typescript-eslint": "^8.48.0"
+    }
+}

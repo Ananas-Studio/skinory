@@ -1,0 +1,23 @@
+{
+    "private": true,
+    "pnpm": {
+        "onlyBuiltDependencies": [
+            "cypress",
+            "esbuild"
+        ]
+    },
+    "scripts": {
+        "lint": "pnpm -r lint",
+        "typecheck": "pnpm -r typecheck",
+        "build": "pnpm -r build",
+        "dev:web": "pnpm --filter web dev",
+        "dev:landing": "pnpm --filter landing dev",
+        "build:web": "pnpm --filter web build",
+        "build:landing": "pnpm --filter landing build",
+        "start:web": "pnpm --filter web start -p 3000",
+        "start:landing": "pnpm --filter landing start -p 3001",
+        "e2e:web": "pnpm --filter e2e run e2e:web",
+        "e2e:landing": "pnpm --filter e2e run e2e:landing"
+    },
+    "packageManager": "pnpm@10.28.1+sha512.7d7dbbca9e99447b7c3bf7a73286afaaf6be99251eb9498baefa7d406892f67b879adb3a1d7e687fc4ccc1a388c7175fbaae567a26ab44d1067b54fcb0d6a316"
+}

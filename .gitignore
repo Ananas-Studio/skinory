@@ -1,0 +1,25 @@
+node_modules
+dist
+.next
+.turbo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode
+.idea
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# Cypress
+cypress/screenshots
+cypress/videos
+cypress/downloads
+
+# Coverage
+coverage
