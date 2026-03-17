@@ -1,0 +1,20 @@
+export const AUTH_PROVIDERS = ["google", "apple"] as const;
+export const GUEST_SESSION_PLATFORMS = ["ios", "android", "web"] as const;
+export const PRODUCT_CATEGORIES = ["skincare", "makeup", "supplement", "other"] as const;
+export const PRODUCT_SOURCE_TYPES = ["barcode", "url_scrape", "manual_import", "unknown"] as const;
+export const BARCODE_FORMATS = ["EAN13", "UPC", "QR", "OTHER"] as const;
+export const PRODUCT_SOURCE_KINDS = ["barcode_lookup", "url_scrape", "partner_feed", "manual"] as const;
+export const SCRAPE_STATUSES = ["pending", "success", "failed"] as const;
+export const SKIN_TYPES = ["dry", "oily", "combination", "normal", "sensitive"] as const;
+export const SENSITIVITY_LEVELS = ["low", "medium", "high"] as const;
+export const INVENTORY_ITEM_STATUSES = ["active", "inactive", "stopped"] as const;
+export const INVENTORY_ITEM_SOURCES = ["scan", "url", "manual"] as const;
+export const ROUTINE_TIME_OF_DAY = ["morning", "evening", "anytime"] as const;
+export const SCAN_TYPES = ["barcode", "url"] as const;
+export const SCAN_RESULT_STATUSES = ["success", "failed", "not_found", "partial"] as const;
+export const ADVICE_SESSION_STATUSES = ["open", "completed", "archived"] as const;
+export const ADVICE_SOURCE_TRIGGERS = ["scan", "url", "manual_question"] as const;
+export const ADVICE_MESSAGE_ROLES = ["user", "assistant", "system"] as const;
+export const RECOMMENDATION_TYPES = ["buy", "dont_buy", "caution"] as const;
+
+export type EnumValue<T extends readonly string[]> = T[number];
