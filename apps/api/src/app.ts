@@ -1,5 +1,8 @@
 import express from "express";
+import swaggerUi from "swagger-ui-express";
 import { getHealthPayload } from "./services/health.service.js";
+import { openApiDocument } from "./docs/swagger.js";
+import { router } from "./routes/index.js";
 
 const app = express();
 
@@ -8,6 +11,14 @@ app.use(express.json());
 app.get("/health", (_req, res) => {
   res.status(200).json({ ok: true, data: getHealthPayload() });
 });
+
+app.get("/docs.json", (_req, res) => {
+  res.status(200).json(openApiDocument);
+});
+
+app.use("/docs", swaggerUi.serve, swaggerUi.setup(openApiDocument));
+
+app.use(router);
 
 app.use((req, res) => {
   res.status(404).json({

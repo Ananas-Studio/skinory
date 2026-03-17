@@ -21,6 +21,14 @@ This file exists to prevent Copilot from making incorrect technology assumptions
 	- `{ ok: true, data: ... }`
 - Error codes must be deterministic; the same condition must return the same `code`.
 
+## Route Contract & Validation Controls
+- Every route must define and enforce an explicit request contract (body, params, query, headers when relevant).
+- Every route must define a stable response contract for both success and failure payloads.
+- Boundary validation failures must return deterministic `4xx` errors with a stable `code` and actionable `details`.
+- Do not pass raw `req.body`, `req.params`, or `req.query` into service logic without validation/parsing.
+- Route handlers must keep transport-level checks in controller/route layer and pass normalized data into services.
+- Contract checks should be present per route to keep API communication predictable and safe across clients.
+
 ## Architecture
 - Keep handlers/controllers thin; move domain logic into service functions.
 - Separate I/O concerns (DB, HTTP, cache) from pure business logic.
