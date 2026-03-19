@@ -17,6 +17,10 @@ Google butonunun gercek auth popup'i acabilmesi icin `apps/web/.env` dosyasina c
 
 ```bash
 VITE_GOOGLE_CLIENT_ID=your_google_web_client_id
+VITE_APPLE_CLIENT_ID=your_apple_service_id
+VITE_APPLE_REDIRECT_URI=http://localhost:5173
+# Opsiyonel: API farkli hostta ise
+# VITE_API_BASE_URL=http://localhost:4000
 ```
 
 1. API'yi baslatin (`apps/api`, varsayilan: `http://localhost:4000`)

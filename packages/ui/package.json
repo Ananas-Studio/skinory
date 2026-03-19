@@ -6,6 +6,7 @@
   "exports": {
     "./globals.css": "./src/globals.css",
     "./postcss.config": "./postcss.config.mjs",
+    "./icons": "./src/icons/index.ts",
     "./lib/*": "./src/lib/*.ts",
     "./components/*": "./src/components/*.tsx"
   },

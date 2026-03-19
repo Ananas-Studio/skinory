@@ -6,7 +6,7 @@ export const sequelize = new Sequelize(env.databaseUrl, {
   dialect: "postgres",
   username: env.username,
   password: env.password,
-  logging: env.nodeEnv === "development" ? console.log : false,
+  logging: false // env.nodeEnv === "development" ? console.log : false,
 });
 
 export async function testDatabaseConnection(): Promise<void> {
