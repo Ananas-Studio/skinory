@@ -13,4 +13,6 @@ export const env = {
   dbConnectOnStart: (process.env.DB_CONNECT_ON_START ?? "true") === "true",
   dbSyncOnStart: (process.env.DB_SYNC_ON_START ?? "true") === "true",
   dbSyncForce: (process.env.DB_SYNC_FORCE ?? "false") === "true",
+  openaiApiKey: process.env.OPENAI_API_KEY ?? "",
+  openaiModel: process.env.OPENAI_MODEL ?? "gpt-4o-mini",
 } as const;

@@ -1,0 +1,342 @@
+import { Router, type Request, type Response } from 'express'
+import { z, ZodError } from 'zod'
+import multer from 'multer'
+import { parseIngredientString } from '@skinory/core'
+import { requireAuth } from '../middlewares/auth.middleware.js'
+import {
+  evaluateProduct,
+  EvaluationServiceError,
+} from '../services/evaluation.service.js'
+import {
+  resolveProduct,
+  ProductLookupError,
+} from '../services/product-lookup.service.js'
+import { createOcrProvider } from '../services/ocr/index.js'
+import { sequelize } from '../config/database.js'
+import { Op } from 'sequelize'
+import { getModels } from '../models/index.js'
+
+export const scanRouter = Router()
+
+scanRouter.use(requireAuth)
+
+// ─── Multer config (memory storage, images only, 10 MB limit) ───────────────
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true)
+    } else {
+      cb(new multer.MulterError('LIMIT_UNEXPECTED_FILE'))
+    }
+  },
+})
+
+// ─── POST /scan/evaluate ─────────────────────────────────────────────────────
+
+const evaluateSchema = z.object({
+  productId: z.string().uuid(),
+})
+
+scanRouter.post('/evaluate', async (req: Request, res: Response) => {
+  try {
+    const body = evaluateSchema.parse(req.body)
+    const userId = (req as any).authUserId as string
+
+    const result = await evaluateProduct(userId, body.productId)
+
+    res.json({ ok: true, data: result })
+  } catch (err: any) {
+    if (err instanceof ZodError) {
+      res.status(400).json({
+        ok: false,
+        error: { code: 'VALIDATION_ERROR', message: 'Invalid request body', details: err.issues },
+      })
+      return
+    }
+    if (err instanceof EvaluationServiceError) {
+      res.status(err.status).json({
+        ok: false,
+        error: { code: err.code, message: err.message, details: err.details },
+      })
+      return
+    }
+    console.error('[scan/evaluate] Unexpected error:', err)
+    res.status(500).json({
+      ok: false,
+      error: { code: 'INTERNAL_ERROR', message: 'Something went wrong' },
+    })
+  }
+})
+
+// ─── GET /scan/history ───────────────────────────────────────────────────────
+
+const historyQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(50).default(10),
+  offset: z.coerce.number().int().min(0).default(0),
+})
+
+scanRouter.get('/history', async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).authUserId as string
+    const { limit, offset } = historyQuerySchema.parse(req.query)
+    const models = getModels()
+
+    const { rows: scans, count: total } = await models.Scan.findAndCountAll({
+      where: {
+        userId,
+        barcodeValue: { [Op.ne]: null },
+        resultStatus: 'success',
+      },
+      order: [['created_at', 'DESC']],
+      limit,
+      offset,
+    })
+
+    // Batch-lookup products by barcode
+    const barcodes = scans
+      .map((s: any) => s.barcodeValue)
+      .filter(Boolean) as string[]
+
+    const barcodeRecords = barcodes.length > 0
+      ? await models.ProductBarcode.findAll({
+          where: { barcode: barcodes },
+          include: [
+            {
+              model: models.Product,
+              as: 'product',
+              include: [{ model: models.Brand, as: 'brand' }],
+            },
+          ],
+        })
+      : []
+
+    const productByBarcode = new Map<string, any>()
+    for (const rec of barcodeRecords) {
+      const r = rec as any
+      if (r.product) {
+        productByBarcode.set(r.barcode, {
+          id: r.product.id,
+          name: r.product.name,
+          brandName: r.product.brand?.name ?? null,
+          category: r.product.category,
+          imageUrl: r.product.imageUrl,
+        })
+      }
+    }
+
+    const data = scans.map((s: any) => ({
+      id: s.id,
+      barcodeValue: s.barcodeValue,
+      scanType: s.scanType,
+      resultStatus: s.resultStatus,
+      createdAt: s.createdAt,
+      product: s.barcodeValue ? (productByBarcode.get(s.barcodeValue) ?? null) : null,
+    }))
+
+    res.json({ ok: true, data: { scans: data, total, limit, offset } })
+  } catch (err: any) {
+    if (err instanceof ZodError) {
+      res.status(400).json({
+        ok: false,
+        error: { code: 'VALIDATION_ERROR', message: 'Invalid query parameters', details: err.issues },
+      })
+      return
+    }
+    console.error('[scan/history] Error:', err)
+    res.status(500).json({
+      ok: false,
+      error: { code: 'INTERNAL_ERROR', message: 'Failed to fetch scan history' },
+    })
+  }
+})
+
+// ─── GET /scan/products ──────────────────────────────────────────────────────
+// Lists available products for evaluation (temporary helper until barcode lookup is built)
+
+scanRouter.get('/products', async (req: Request, res: Response) => {
+  try {
+    const models = getModels()
+
+    const products = await models.Product.findAll({
+      where: { isActive: true },
+      include: [{ model: models.Brand, as: 'brand' }],
+      order: [['name', 'ASC']],
+      limit: 50,
+    })
+
+    const data = products.map((p: any) => ({
+      id: p.id,
+      name: p.name,
+      brandName: p.brand?.name ?? null,
+      category: p.category,
+      imageUrl: p.imageUrl,
+    }))
+
+    res.json({ ok: true, data })
+  } catch (err: any) {
+    console.error('[scan/products] Error:', err)
+    res.status(500).json({
+      ok: false,
+      error: { code: 'INTERNAL_ERROR', message: 'Failed to fetch products' },
+    })
+  }
+})
+
+// ─── POST /scan/resolve ──────────────────────────────────────────────────────
+
+const resolveSchema = z.object({
+  barcode: z.string().trim().min(1, 'Barcode is required'),
+  barcodeFormat: z.string().optional(),
+})
+
+scanRouter.post('/resolve', async (req: Request, res: Response) => {
+  try {
+    const body = resolveSchema.parse(req.body)
+    const userId = req.authUserId as string
+
+    const result = await resolveProduct(body.barcode, userId)
+    
+    res.json({ ok: true, data: result })
+  } catch (err: any) {
+    if (err instanceof ZodError) {
+      res.status(400).json({
+        ok: false,
+        error: { code: 'VALIDATION_ERROR', message: 'Invalid request body', details: err.issues },
+      })
+      return
+    }
+    if (err instanceof ProductLookupError) {
+      res.status(err.status).json({
+        ok: false,
+        error: { code: err.code, message: err.message, details: err.details },
+      })
+      return
+    }
+    console.error('[scan/resolve] Unexpected error:', err)
+    res.status(500).json({
+      ok: false,
+      error: { code: 'INTERNAL_ERROR', message: 'Something went wrong' },
+    })
+  }
+})
+
+// ─── POST /scan/ocr-ingredients ─────────────────────────────────────────────
+
+scanRouter.post('/ocr-ingredients', upload.single('image'), async (req: Request, res: Response) => {
+  try {
+    const file = req.file
+    if (!file) {
+      res.status(400).json({
+        ok: false,
+        error: { code: 'MISSING_IMAGE', message: 'An image file is required (field: "image")' },
+      })
+      return
+    }
+
+    const ocrProvider = createOcrProvider()
+    const ocrResult = await ocrProvider.recognize(file.buffer)
+
+    const parsed = parseIngredientString(ocrResult.text)
+
+    res.json({
+      ok: true,
+      data: {
+        ocrText: ocrResult.text,
+        confidence: ocrResult.confidence,
+        ingredients: parsed.ingredients,
+      },
+    })
+  } catch (err: any) {
+    if (err instanceof multer.MulterError) {
+      const message = err.code === 'LIMIT_FILE_SIZE'
+        ? 'Image must be under 10 MB'
+        : err.code === 'LIMIT_UNEXPECTED_FILE'
+          ? 'Only image files are accepted'
+          : err.message
+      res.status(400).json({
+        ok: false,
+        error: { code: 'UPLOAD_ERROR', message },
+      })
+      return
+    }
+    console.error('[scan/ocr-ingredients] Error:', err)
+    res.status(500).json({
+      ok: false,
+      error: { code: 'INTERNAL_ERROR', message: 'Failed to process image' },
+    })
+  }
+})
+
+// ─── POST /scan/save-ingredients ─────────────────────────────────────────────
+
+const saveIngredientsSchema = z.object({
+  productId: z.string().uuid(),
+  ingredientsText: z.string().trim().min(1, 'Ingredients text is required'),
+})
+
+scanRouter.post('/save-ingredients', async (req: Request, res: Response) => {
+  try {
+    const body = saveIngredientsSchema.parse(req.body)
+    const { Product, Ingredient, ProductIngredient } = getModels()
+
+    const product = await Product.findByPk(body.productId)
+    if (!product) {
+      res.status(404).json({
+        ok: false,
+        error: { code: 'PRODUCT_NOT_FOUND', message: 'Product not found' },
+      })
+      return
+    }
+
+    const parsed = parseIngredientString(body.ingredientsText)
+    const ingredientNames: string[] = []
+
+    await sequelize.transaction(async (transaction) => {
+      for (const item of parsed.ingredients) {
+        const [ingredient] = await Ingredient.findOrCreate({
+          where: { inciName: item.inciName },
+          defaults: { inciName: item.inciName, displayName: item.rawLabel },
+          transaction,
+        })
+
+        await ProductIngredient.findOrCreate({
+          where: { productId: body.productId, ingredientId: ingredient.id },
+          defaults: {
+            productId: body.productId,
+            ingredientId: ingredient.id,
+            ingredientOrder: item.order,
+            rawLabel: item.rawLabel,
+          },
+          transaction,
+        })
+
+        ingredientNames.push(item.inciName)
+      }
+    })
+
+    res.json({
+      ok: true,
+      data: {
+        success: true,
+        ingredientCount: ingredientNames.length,
+        ingredients: ingredientNames,
+      },
+    })
+  } catch (err: any) {
+    if (err instanceof ZodError) {
+      res.status(400).json({
+        ok: false,
+        error: { code: 'VALIDATION_ERROR', message: 'Invalid request body', details: err.issues },
+      })
+      return
+    }
+    console.error('[scan/save-ingredients] Error:', err)
+    res.status(500).json({
+      ok: false,
+      error: { code: 'INTERNAL_ERROR', message: 'Failed to save ingredients' },
+    })
+  }
+})

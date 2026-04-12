@@ -25,7 +25,7 @@ function IntroductionScreen() {
           <br />
           Get personalized <span className='bg-[#FBA189]/80 rounded-full px-1'>advice</span>
         </h1>
-        <Link to="/home" className='w-full mt-auto'>
+        <Link to="/signin" className='w-full mt-auto'>
           <PrimaryButton className='w-full'>Next</PrimaryButton>
         </Link>
       </section>

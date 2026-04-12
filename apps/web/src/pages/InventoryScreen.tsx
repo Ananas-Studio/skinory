@@ -1,50 +1,146 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '@skinory/ui/components/button'
-import { products } from './data'
+import { Loader2 } from '@skinory/ui/icons'
 import { HorizontalProductCard, ScreenFrame, SearchField } from './shared'
+import { listInventoryItems, type InventoryItem } from '../lib/inventory-api'
+import { fetchFavorites, type FavoriteItem } from '../lib/favorites-api'
+import { fetchScanHistory, type ScanHistoryItem } from '../lib/scan-api'
+import type { Product } from './types'
+import { useAuth } from '../contexts/auth-context'
 
 type InventoryTabKey = 'products' | 'wishlist' | 'history'
 
+// ─── Unified card shape ──────────────────────────────────────────────────────
+
+interface CardItem {
+  product: Product
+  imageUrl: string
+}
+
+function inventoryToCard(item: InventoryItem): CardItem {
+  return {
+    product: {
+      name: item.productName,
+      subtitle: item.brandName ?? item.category,
+      tags: [item.category],
+    },
+    imageUrl: item.imageUrl ?? '/introduction-image.png',
+  }
+}
+
+function favoriteToCard(item: FavoriteItem): CardItem {
+  return {
+    product: {
+      name: item.product?.name ?? 'Unknown Product',
+      subtitle: item.product?.brandName ?? item.product?.category ?? '',
+      tags: item.product?.category ? [item.product.category] : [],
+    },
+    imageUrl: item.product?.imageUrl ?? '/introduction-image.png',
+  }
+}
+
+function scanToCard(item: ScanHistoryItem): CardItem {
+  return {
+    product: {
+      name: item.product?.name ?? 'Unknown Product',
+      subtitle: item.product?.brandName ?? item.barcodeValue ?? '',
+      tags: item.product?.category ? [item.product.category] : [],
+    },
+    imageUrl: item.product?.imageUrl ?? '/introduction-image.png',
+  }
+}
+
+// ─── Tab-specific empty states ───────────────────────────────────────────────
+
+const emptyStates: Record<InventoryTabKey, { title: string; hint: string }> = {
+  products: {
+    title: 'No products in your inventory yet.',
+    hint: 'Scan a product and tap "Add to Inventory"',
+  },
+  wishlist: {
+    title: 'Your wishlist is empty.',
+    hint: 'Tap the heart icon on products to save them here',
+  },
+  history: {
+    title: 'No scan history yet.',
+    hint: 'Scan your first product to see it here',
+  },
+}
+
 function InventoryScreen() {
+  const { user } = useAuth()
+  const userId = user!.id
   const [activeTab, setActiveTab] = useState<InventoryTabKey>('products')
-  const [visibleCount, setVisibleCount] = useState(10)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [loading, setLoading] = useState(true)
   const listRef = useRef<HTMLElement | null>(null)
 
-  const dataByTab = useMemo(
-    () => ({
-      products,
-      wishlist: [...products].reverse(),
-      history: [products[1], products[2], products[0]],
-    }),
-    []
-  )
+  // Raw data per tab
+  const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([])
+  const [favoriteItems, setFavoriteItems] = useState<FavoriteItem[]>([])
+  const [historyItems, setHistoryItems] = useState<ScanHistoryItem[]>([])
 
-  const activeData = dataByTab[activeTab]
+  // Track which tabs have been loaded
+  const [loaded, setLoaded] = useState<Record<InventoryTabKey, boolean>>({
+    products: false,
+    wishlist: false,
+    history: false,
+  })
 
-  const renderedItems = useMemo(
-    () => Array.from({ length: visibleCount }, (_, index) => activeData[index % activeData.length]),
-    [activeData, visibleCount]
-  )
+  const fetchTab = useCallback(async (tab: InventoryTabKey) => {
+    setLoading(true)
+    try {
+      if (tab === 'products') {
+        const items = await listInventoryItems(userId)
+        setInventoryItems(items)
+      } else if (tab === 'wishlist') {
+        const res = await fetchFavorites(userId)
+        setFavoriteItems(res.favorites)
+      } else {
+        const res = await fetchScanHistory(userId, 100)
+        setHistoryItems(res.scans)
+      }
+      setLoaded((prev) => ({ ...prev, [tab]: true }))
+    } catch {
+      // Keep previous data on error
+    } finally {
+      setLoading(false)
+    }
+  }, [userId])
 
   useEffect(() => {
-    setVisibleCount(10)
-    listRef.current?.scrollTo({ top: 0 })
-  }, [activeTab])
-
-  const handleListScroll = () => {
-    const listElement = listRef.current
-
-    if (!listElement) {
-      return
+    // Fetch on tab change if not already loaded
+    if (!loaded[activeTab]) {
+      fetchTab(activeTab)
     }
+  }, [activeTab, loaded, fetchTab])
 
-    const threshold = 220
-    const isNearBottom = listElement.scrollHeight - listElement.scrollTop - listElement.clientHeight < threshold
+  // Initial load
+  useEffect(() => {
+    fetchTab('products')
+  }, [fetchTab])
 
-    if (isNearBottom) {
-      setVisibleCount((prev) => prev + 8)
-    }
-  }
+  // Map to card items based on active tab
+  const cards = useMemo(() => {
+    let items: CardItem[]
+    if (activeTab === 'products') items = inventoryItems.map(inventoryToCard)
+    else if (activeTab === 'wishlist') items = favoriteItems.map(favoriteToCard)
+    else items = historyItems.map(scanToCard)
+
+    if (!searchQuery.trim()) return items
+
+    const q = searchQuery.toLowerCase()
+    return items.filter(
+      (c) =>
+        c.product.name.toLowerCase().includes(q) ||
+        c.product.subtitle.toLowerCase().includes(q),
+    )
+  }, [activeTab, inventoryItems, favoriteItems, historyItems, searchQuery])
+
+  const handleTabChange = useCallback((tab: InventoryTabKey) => {
+    setActiveTab(tab)
+    setSearchQuery('')
+  }, [])
 
   return (
     <ScreenFrame className="bg-white">
@@ -67,7 +163,7 @@ function InventoryScreen() {
                 variant="ghost"
                 role="tab"
                 aria-selected={isActive}
-                onClick={() => setActiveTab(tab.key)}
+                onClick={() => handleTabChange(tab.key)}
                 className={isActive
                   ? 'min-h-[34px] flex-1 rounded-full bg-[#ee886e] px-2.5 py-2 text-[14px] leading-[16px] text-white hover:bg-[#e27f66]'
                   : 'min-h-[34px] flex-1 rounded-full px-2.5 py-2 text-[14px] leading-[16px] text-[#71717a] hover:bg-transparent'
@@ -79,22 +175,37 @@ function InventoryScreen() {
           })}
         </div>
 
-        <SearchField className="border border-border" />
+        <SearchField
+          className="border border-border"
+          value={searchQuery}
+          onChange={setSearchQuery}
+          placeholder={`Search ${activeTab === 'products' ? 'products' : activeTab === 'wishlist' ? 'wishlist' : 'history'}...`}
+        />
       </section>
 
       <section
         ref={listRef}
-        onScroll={handleListScroll}
         className="mt-[18px] flex flex-1 flex-col gap-2.5 overflow-y-auto pb-3"
         aria-label="Inventory product list"
       >
-        {renderedItems.map((item, index) => (
-          <HorizontalProductCard
-            key={`inventory-${activeTab}-${index}`}
-            item={{ ...item, decision: undefined }}
-            imageSrc="/auth-image.svg"
-          />
-        ))}
+        {loading && !loaded[activeTab] ? (
+          <div className="flex flex-1 items-center justify-center">
+            <Loader2 size={24} className="animate-spin text-[#ee886e]" />
+          </div>
+        ) : cards.length === 0 ? (
+          <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center">
+            <p className="text-[14px] text-[#71717a]">{emptyStates[activeTab].title}</p>
+            <p className="text-[12px] text-[#a1a1aa]">{emptyStates[activeTab].hint}</p>
+          </div>
+        ) : (
+          cards.map((card, index) => (
+            <HorizontalProductCard
+              key={`${activeTab}-${index}`}
+              item={card.product}
+              imageSrc={card.imageUrl}
+            />
+          ))
+        )}
       </section>
     </ScreenFrame>
   )

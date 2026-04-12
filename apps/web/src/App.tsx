@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import type { NavKey } from './pages/types'
+import { AuthProvider } from './contexts/auth-context'
+import ProtectedRoute from './components/protected-route'
 import AdviserChatOpeningScreen from './pages/AdviserChatOpeningScreen'
 import AdviserChattingScreen from './pages/AdviserChattingScreen'
 import AdviserResultScreen from './pages/AdviserResultScreen'
@@ -8,6 +10,8 @@ import AdviserScanScreen from './pages/AdviserScanScreen'
 import HomeScreen from './pages/HomeScreen'
 import IntroductionScreen from './pages/IntroductionScreen'
 import InventoryScreen from './pages/InventoryScreen'
+import IngredientCaptureScreen from './pages/IngredientCaptureScreen'
+import ProfileScreen from './pages/ProfileScreen'
 import ScanScreen from './pages/ScanScreen'
 import ScreenDirectory from './pages/ScreenDirectory'
 import SearchScreen from './pages/SearchScreen'
@@ -31,7 +35,7 @@ function getActiveNav(pathname: string): NavKey {
   return 'home'
 }
 
-function App() {
+function AppRoutes() {
   const location = useLocation()
   const [showLaunchSplash, setShowLaunchSplash] = useState(true)
 
@@ -47,7 +51,7 @@ function App() {
   }, [])
 
   const shouldRenderSplash = showLaunchSplash && location.pathname !== '/pages'
-  const shouldShowBottomNav = !['/introduction', '/signin', '/pages'].includes(location.pathname)
+  const shouldShowBottomNav = !['/introduction', '/signin', '/pages', '/profile'].includes(location.pathname)
   const activeNav = getActiveNav(location.pathname)
 
   return (
@@ -58,14 +62,16 @@ function App() {
           <Route path="/pages" element={<ScreenDirectory />} />
           <Route path="/introduction" element={<IntroductionScreen />} />
           <Route path="/signin" element={<SignInScreen />} />
-          <Route path="/home" element={<HomeScreen />} />
-          <Route path="/search" element={<SearchScreen />} />
-          <Route path="/inventory" element={<InventoryScreen />} />
-          <Route path="/scan" element={<ScanScreen />} />
-          <Route path="/adviser/scan" element={<AdviserScanScreen />} />
-          <Route path="/adviser/result" element={<AdviserResultScreen />} />
-          <Route path="/adviser/chat" element={<AdviserChatOpeningScreen />} />
-          <Route path="/adviser/chatting" element={<AdviserChattingScreen />} />
+          <Route path="/home" element={<ProtectedRoute><HomeScreen /></ProtectedRoute>} />
+          <Route path="/search" element={<ProtectedRoute><SearchScreen /></ProtectedRoute>} />
+          <Route path="/inventory" element={<ProtectedRoute><InventoryScreen /></ProtectedRoute>} />
+          <Route path="/scan" element={<ProtectedRoute><ScanScreen /></ProtectedRoute>} />
+          <Route path="/scan/ingredients" element={<ProtectedRoute><IngredientCaptureScreen /></ProtectedRoute>} />
+          <Route path="/adviser/scan" element={<ProtectedRoute><AdviserScanScreen /></ProtectedRoute>} />
+          <Route path="/adviser/result" element={<ProtectedRoute><AdviserResultScreen /></ProtectedRoute>} />
+          <Route path="/adviser/chat" element={<ProtectedRoute><AdviserChatOpeningScreen /></ProtectedRoute>} />
+          <Route path="/adviser/chatting" element={<ProtectedRoute><AdviserChattingScreen /></ProtectedRoute>} />
+          <Route path="/profile" element={<ProtectedRoute><ProfileScreen /></ProtectedRoute>} />
           <Route path="*" element={<ScreenDirectory />} />
         </Routes>
       </div>
@@ -82,6 +88,14 @@ function App() {
         </div>
       ) : null}
     </>
+  )
+}
+
+function App() {
+  return (
+    <AuthProvider>
+      <AppRoutes />
+    </AuthProvider>
   )
 }
 

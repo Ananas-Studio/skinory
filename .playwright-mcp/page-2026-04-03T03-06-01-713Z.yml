@@ -1,0 +1,49 @@
+- generic [ref=e2]:
+  - main [ref=e4]:
+    - generic [ref=e5]:
+      - button [ref=e6] [cursor=pointer]:
+        - img
+      - heading "Add Ingredients" [level=1] [ref=e7]
+    - generic [ref=e11]:
+      - paragraph [ref=e12]: Unknown Product
+      - paragraph [ref=e13]: "Barcode:"
+    - generic [ref=e15]:
+      - img [ref=e16]
+      - paragraph [ref=e19]: Take a clear photo of the ingredient list on the product packaging
+    - generic [ref=e20]:
+      - button "Take Photo" [ref=e21] [cursor=pointer]:
+        - img
+        - text: Take Photo
+      - button "Upload Photo" [ref=e22] [cursor=pointer]:
+        - img
+        - text: Upload Photo
+  - navigation [ref=e24]:
+    - link "Home" [ref=e25] [cursor=pointer]:
+      - /url: /home
+      - generic [ref=e26]:
+        - img
+      - generic [ref=e27]: Home
+    - link "Inventory" [ref=e28] [cursor=pointer]:
+      - /url: /inventory
+      - generic [ref=e29]:
+        - img
+      - generic [ref=e30]: Inventory
+    - link "Scan" [ref=e31] [cursor=pointer]:
+      - /url: /scan
+      - generic [ref=e32]:
+        - img
+    - link "Adviser" [ref=e33] [cursor=pointer]:
+      - /url: /adviser/chat
+      - generic [ref=e34]:
+        - img
+      - generic [ref=e35]: Adviser
+    - link "Routine" [ref=e36] [cursor=pointer]:
+      - /url: /home
+      - generic [ref=e37]:
+        - img
+      - generic [ref=e38]: Routine
+  - main [ref=e40]:
+    - region "Skinory splash" [ref=e41]:
+      - img [ref=e42]:
+        - generic [ref=e43]: Skinory · Skinory · Skinory · Skinory · Skinory · Skinory ·
+      - img [ref=e44]

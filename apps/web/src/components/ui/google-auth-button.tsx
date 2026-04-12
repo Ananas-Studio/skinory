@@ -2,39 +2,51 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '@skinory/ui/components/button'
 import { Google } from '@skinory/ui/icons'
 
-interface GoogleCodeResponse {
-  code?: string
-  error?: string
-  error_description?: string
+// ─── Google Identity Services (credential / One Tap) types ──────────────────
+
+interface GoogleCredentialResponse {
+  credential?: string
+  select_by?: string
+  clientId?: string
 }
 
-interface GoogleCodeClient {
-  requestCode: () => void
+interface GoogleIdConfig {
+  client_id: string
+  callback: (response: GoogleCredentialResponse) => void
+  auto_select?: boolean
+  cancel_on_tap_outside?: boolean
+  itp_support?: boolean
 }
 
-interface GoogleAccountsOauth2 {
-  initCodeClient: (config: {
-    client_id: string
-    scope: string
-    ux_mode?: 'popup' | 'redirect'
-    callback: (response: GoogleCodeResponse) => void
-    error_callback?: (error: { type: string }) => void
-  }) => GoogleCodeClient
+interface GoogleAccountsId {
+  initialize: (config: GoogleIdConfig) => void
+  prompt: (notification?: (n: { isNotDisplayed: () => boolean; isSkippedMoment: () => boolean }) => void) => void
+  renderButton: (parent: HTMLElement, options: Record<string, unknown>) => void
+  disableAutoSelect: () => void
 }
 
 declare global {
   interface Window {
     google?: {
       accounts?: {
-        oauth2?: GoogleAccountsOauth2
+        id?: GoogleAccountsId
+        oauth2?: unknown
       }
     }
   }
 }
 
+export interface GoogleCredentialPayload {
+  providerUserId: string
+  idToken: string
+  email?: string
+  fullName?: string
+  avatarUrl?: string
+}
+
 interface GoogleAuthButtonProps {
   clientId?: string
-  onCode: (code: string) => void | Promise<void>
+  onCredential: (payload: GoogleCredentialPayload) => void | Promise<void>
   onReadyChange?: (isReady: boolean) => void
   onError?: (message: string) => void
   disabled?: boolean
@@ -43,18 +55,36 @@ interface GoogleAuthButtonProps {
 const scriptSelector = 'script[data-google-gsi="true"]'
 
 function normalizeClientId(value?: string): string {
-  if (typeof value !== 'string') {
-    return ''
-  }
-
+  if (typeof value !== 'string') return ''
   return value.trim().replace(/^['"]|['"]$/g, '')
 }
 
-const GoogleAuthButton = ({ clientId, onCode, onReadyChange, onError, disabled = false }: GoogleAuthButtonProps) => {
-  const codeClientRef = useRef<GoogleCodeClient | null>(null)
+function decodeJwtPayload(jwt: string): Record<string, unknown> | null {
+  try {
+    const parts = jwt.split('.')
+    if (parts.length !== 3) return null
+    const payload = parts[1].replace(/-/g, '+').replace(/_/g, '/')
+    return JSON.parse(atob(payload)) as Record<string, unknown>
+  } catch {
+    return null
+  }
+}
+
+const GoogleAuthButton = ({
+  clientId,
+  onCredential,
+  onReadyChange,
+  onError,
+  disabled = false,
+}: GoogleAuthButtonProps) => {
+  const readyRef = useRef(false)
   const [isLoading, setIsLoading] = useState(false)
 
   const resolvedClientId = useMemo(() => normalizeClientId(clientId), [clientId])
+
+  // Keep a stable ref to the latest callback to avoid re-initializing GIS on every render
+  const onCredentialRef = useRef(onCredential)
+  onCredentialRef.current = onCredential
 
   useEffect(() => {
     if (!resolvedClientId) {
@@ -63,113 +93,100 @@ const GoogleAuthButton = ({ clientId, onCode, onReadyChange, onError, disabled =
     }
 
     let isCancelled = false
-    let cleanupLoadHandler: (() => void) | null = null
-    let cleanupErrorHandler: (() => void) | null = null
+    let cleanupLoad: (() => void) | null = null
+    let cleanupError: (() => void) | null = null
 
     const configureGoogle = (): void => {
-      if (isCancelled) {
-        return
-      }
+      if (isCancelled) return
 
-      const googleOauth2 = window.google?.accounts?.oauth2
-      if (!googleOauth2) {
-        return
-      }
+      const gid = window.google?.accounts?.id
+      if (!gid) return
 
       try {
-        codeClientRef.current = googleOauth2.initCodeClient({
+        gid.initialize({
           client_id: resolvedClientId,
-          scope: 'openid email profile',
-          ux_mode: 'popup',
           callback: (response) => {
-            if (response.code) {
-              setIsLoading(true)
-              void Promise.resolve(onCode(response.code))
-                .catch(() => {
-                  if (!isCancelled) {
-                    onError?.('Google kodu islenirken bir hata olustu.')
-                  }
-                })
-                .finally(() => {
-                  if (!isCancelled) {
-                    setIsLoading(false)
-                  }
-                })
+            if (!response.credential) {
+              if (!isCancelled) onError?.('Google credential alinamadi.')
               return
             }
 
-            if (!isCancelled) {
-              const message = response.error_description ?? response.error ?? 'Google authorization code alinamadi.'
-              onError?.(message)
+            const claims = decodeJwtPayload(response.credential)
+            if (!claims || !claims.sub) {
+              if (!isCancelled) onError?.('Google token okunamadi.')
+              return
             }
-          },
-          error_callback: (error) => {
-            if (!isCancelled) {
-              onError?.(`Google popup hatasi: ${error.type}`)
+
+            const payload: GoogleCredentialPayload = {
+              providerUserId: String(claims.sub),
+              idToken: response.credential,
+              email: typeof claims.email === 'string' ? claims.email : undefined,
+              fullName: typeof claims.name === 'string' ? claims.name : undefined,
+              avatarUrl: typeof claims.picture === 'string' ? claims.picture : undefined,
             }
+
+            setIsLoading(true)
+            void Promise.resolve(onCredentialRef.current(payload))
+              .catch(() => {
+                if (!isCancelled) onError?.('Google giris islenirken hata olustu.')
+              })
+              .finally(() => {
+                if (!isCancelled) setIsLoading(false)
+              })
           },
+          cancel_on_tap_outside: true,
         })
+
+        readyRef.current = true
+        onReadyChange?.(true)
       } catch {
         if (!isCancelled) {
-          onError?.('Google OAuth baslatilamadi. Client ID ve Authorized JavaScript origins ayarlarini kontrol edin.')
+          onError?.('Google OAuth baslatilamadi. Client ID ayarlarini kontrol edin.')
         }
-        return
-      }
-
-      onReadyChange?.(true)
-    }
-
-    const handleScriptLoad = (): void => {
-      configureGoogle()
-    }
-
-    const handleScriptError = (): void => {
-      if (!isCancelled) {
-        onReadyChange?.(false)
-        onError?.('Google script yuklenemedi. Ag veya tarayici engelini kontrol edin.')
       }
     }
 
     onReadyChange?.(false)
 
-    if (window.google?.accounts?.oauth2) {
+    if (window.google?.accounts?.id) {
       configureGoogle()
     } else {
-      const existingScript = document.querySelector<HTMLScriptElement>(scriptSelector)
-      if (existingScript) {
-        existingScript.addEventListener('load', handleScriptLoad, { once: true })
-        existingScript.addEventListener('error', handleScriptError, { once: true })
-        cleanupLoadHandler = () => existingScript.removeEventListener('load', handleScriptLoad)
-        cleanupErrorHandler = () => existingScript.removeEventListener('error', handleScriptError)
+      const existing = document.querySelector<HTMLScriptElement>(scriptSelector)
+      const bindScript = (el: HTMLScriptElement) => {
+        const onLoad = () => configureGoogle()
+        const onErr = () => {
+          if (!isCancelled) {
+            onReadyChange?.(false)
+            onError?.('Google script yuklenemedi.')
+          }
+        }
+        el.addEventListener('load', onLoad, { once: true })
+        el.addEventListener('error', onErr, { once: true })
+        cleanupLoad = () => el.removeEventListener('load', onLoad)
+        cleanupError = () => el.removeEventListener('error', onErr)
+      }
+
+      if (existing) {
+        bindScript(existing)
       } else {
         const script = document.createElement('script')
         script.src = 'https://accounts.google.com/gsi/client'
         script.async = true
         script.defer = true
         script.dataset.googleGsi = 'true'
-        script.addEventListener('load', handleScriptLoad, { once: true })
-        script.addEventListener('error', handleScriptError, { once: true })
-
-        cleanupLoadHandler = () => script.removeEventListener('load', handleScriptLoad)
-        cleanupErrorHandler = () => script.removeEventListener('error', handleScriptError)
-
+        bindScript(script)
         document.head.appendChild(script)
       }
     }
 
     return () => {
       isCancelled = true
-      codeClientRef.current = null
+      readyRef.current = false
       onReadyChange?.(false)
-
-      if (cleanupLoadHandler) {
-        cleanupLoadHandler()
-      }
-      if (cleanupErrorHandler) {
-        cleanupErrorHandler()
-      }
+      cleanupLoad?.()
+      cleanupError?.()
     }
-  }, [onCode, onError, onReadyChange, resolvedClientId])
+  }, [resolvedClientId, onReadyChange, onError])
 
   const handleClick = (): void => {
     if (!resolvedClientId) {
@@ -177,12 +194,20 @@ const GoogleAuthButton = ({ clientId, onCode, onReadyChange, onError, disabled =
       return
     }
 
-    if (!codeClientRef.current) {
+    const gid = window.google?.accounts?.id
+    if (!gid || !readyRef.current) {
       onError?.('Google auth hazir degil, lutfen tekrar deneyin.')
       return
     }
 
-    codeClientRef.current.requestCode()
+    // Trigger the One Tap / popup flow
+    gid.prompt((notification) => {
+      if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+        // Fallback: open the accounts chooser popup manually
+        // This happens when One Tap is blocked (e.g. in iframe or cooldown)
+        onError?.('Google popup gosterilemedi. Tarayici engelini kontrol edin.')
+      }
+    })
   }
 
   return (

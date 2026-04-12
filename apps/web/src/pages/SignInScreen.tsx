@@ -1,12 +1,17 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { ScreenFrame } from './shared'
 import AppleAuthButton from '../components/ui/apple-auth-button'
 import GoogleAuthButton from '../components/ui/google-auth-button'
+import type { GoogleCredentialPayload } from '../components/ui/google-auth-button'
 import { SkinoryLogo } from '@skinory/ui/icons'
 import AuthImage from '../assets/auth-image'
+import { useAuth } from '../contexts/auth-context'
 
 function SignInScreen() {
   const [authStatus, setAuthStatus] = useState<string | null>(null)
+  const navigate = useNavigate()
+  const { signIn } = useAuth()
 
   const handleAppleAuthorization = async (payload: {
     providerUserId: string
@@ -14,34 +19,34 @@ function SignInScreen() {
     email?: string
     fullName?: string
   }): Promise<void> => {
-    const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim() ?? ''
-    const endpoint = `${apiBaseUrl}/auth/provider/sign-in`
-
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
+    try {
+      await signIn({
         provider: 'apple',
         providerUserId: payload.providerUserId,
         idToken: payload.idToken,
         email: payload.email,
         fullName: payload.fullName,
-      }),
-    })
-
-    const body = (await response.json().catch(() => null)) as
-      | { ok?: boolean; error?: { message?: string } }
-      | null
-
-    if (!response.ok || !body?.ok) {
-      const message = body?.error?.message ?? 'Apple sign in basarisiz oldu.'
-      setAuthStatus(message)
-      throw new Error(message)
+      })
+      navigate('/home', { replace: true })
+    } catch {
+      setAuthStatus('Apple ile giris basarisiz oldu.')
     }
+  }
 
-    setAuthStatus('Apple ile giris basarili.')
+  const handleGoogleCredential = async (payload: GoogleCredentialPayload): Promise<void> => {
+    try {
+      await signIn({
+        provider: 'google',
+        providerUserId: payload.providerUserId,
+        idToken: payload.idToken,
+        email: payload.email,
+        fullName: payload.fullName,
+        avatarUrl: payload.avatarUrl,
+      })
+      navigate('/home', { replace: true })
+    } catch {
+      setAuthStatus('Google ile giris basarisiz oldu.')
+    }
   }
 
   return (
@@ -67,7 +72,10 @@ function SignInScreen() {
           />
           <GoogleAuthButton
             clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}
-            onCode={() => {}}
+            onCredential={handleGoogleCredential}
+            onError={(message) => {
+              setAuthStatus(message)
+            }}
           />
           {authStatus ? (
             <p className="text-center text-[13px] leading-5 text-[#3f3f46]">{authStatus}</p>

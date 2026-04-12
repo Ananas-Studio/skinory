@@ -1,0 +1,37 @@
+- generic [ref=e2]:
+  - main [ref=e4]:
+    - generic [ref=e6]:
+      - button [ref=e7] [cursor=pointer]:
+        - img
+      - heading "Scan Product" [level=1] [ref=e8]
+    - generic [ref=e9]:
+      - generic [ref=e36]:
+        - img [ref=e37]
+        - text: Point at a barcode
+      - button "Turn on flashlight" [ref=e42]:
+        - img [ref=e43]
+  - navigation [ref=e11]:
+    - link "Home" [ref=e12] [cursor=pointer]:
+      - /url: /home
+      - generic [ref=e13]:
+        - img
+      - generic [ref=e14]: Home
+    - link "Inventory" [ref=e15] [cursor=pointer]:
+      - /url: /inventory
+      - generic [ref=e16]:
+        - img
+      - generic [ref=e17]: Inventory
+    - link "Scan" [ref=e18] [cursor=pointer]:
+      - /url: /scan
+      - generic [ref=e19]:
+        - img
+    - link "Adviser" [ref=e20] [cursor=pointer]:
+      - /url: /adviser/chat
+      - generic [ref=e21]:
+        - img
+      - generic [ref=e22]: Adviser
+    - link "Routine" [ref=e23] [cursor=pointer]:
+      - /url: /home
+      - generic [ref=e24]:
+        - img
+      - generic [ref=e25]: Routine

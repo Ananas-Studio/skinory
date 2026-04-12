@@ -1,54 +1,81 @@
-import { ArrowLeft } from '@skinory/ui/icons'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Button } from '@skinory/ui/components/button'
 import { products } from './data'
-import { IconButton, ProductCard, ScreenFrame, SearchField } from './shared'
+import { HorizontalProductCard, IconButton, ScreenFrame, SearchField } from './shared'
+import { ArrowLeft } from '@skinory/ui/icons'
 
-function SearchScreen() {
+type InventoryTabKey = 'products' | 'wishlist' | 'history'
+
+function InventoryScreen() {
+  const [activeTab, setActiveTab] = useState<InventoryTabKey>('products')
+  const [visibleCount, setVisibleCount] = useState(10)
+  const listRef = useRef<HTMLElement | null>(null)
+
+  const dataByTab = useMemo(
+    () => ({
+      products,
+      wishlist: [...products].reverse(),
+      history: [products[1], products[2], products[0]],
+    }),
+    []
+  )
+
+  const activeData = dataByTab[activeTab]
+
+  const renderedItems = useMemo(
+    () => Array.from({ length: visibleCount }, (_, index) => activeData[index % activeData.length]),
+    [activeData, visibleCount]
+  )
+
+  useEffect(() => {
+    setVisibleCount(10)
+    listRef.current?.scrollTo({ top: 0 })
+  }, [activeTab])
+
+  const handleListScroll = () => {
+    const listElement = listRef.current
+
+    if (!listElement) {
+      return
+    }
+
+    const threshold = 220
+    const isNearBottom = listElement.scrollHeight - listElement.scrollTop - listElement.clientHeight < threshold
+
+    if (isNearBottom) {
+      setVisibleCount((prev) => prev + 8)
+    }
+  }
+
   return (
-    <ScreenFrame>
-      <section className="mt-[10px] flex flex-col gap-3">
-        <div className="flex items-center gap-2.5">
-          <IconButton>
-            <ArrowLeft size={18} />
-          </IconButton>
-          <h1 className="text-[24px] leading-none font-medium">Search</h1>
-        </div>
-        <SearchField />
+    <ScreenFrame className="bg-white">
+      <div className="flex items-center justify-center py-4 relative">
+        <IconButton className="absolute left-0 rounded-sm!" variant='outline'>
+          <ArrowLeft />
+        </IconButton>
+
+        <h1 className="text-base leading-none font-semibold text-foreground">Search</h1>
+      </div>
+      <section className="flex flex-col gap-2">
+        <SearchField className="border border-border" />
       </section>
 
-      <section className="mt-[10px] flex max-h-[356px] flex-1 flex-col gap-2.5 overflow-y-auto pb-2">
-        {products.concat(products[0]).map((item, index) => (
-          <ProductCard key={`search-${index}`} item={{ ...item, decision: undefined }} />
+      <section
+        ref={listRef}
+        onScroll={handleListScroll}
+        className="mt-[18px] flex flex-1 flex-col gap-2.5 overflow-y-auto pb-3"
+        aria-label="Inventory product list"
+      >
+        {renderedItems.map((item, index) => (
+          <HorizontalProductCard
+            key={`inventory-${activeTab}-${index}`}
+            item={{ ...item, decision: undefined }}
+            imageSrc="/auth-image.svg"
+          />
         ))}
-      </section>
-
-      <section className="mx-[-16px] mt-auto flex flex-col gap-1.5 border-t border-black/10 bg-[#f4f4f5] px-2 pt-2.5 pb-3" aria-label="Keyboard mock">
-        <div className="flex justify-between px-2.5 text-[14px] text-[#8f8f8f]">
-          <span>“The”</span>
-          <span>the</span>
-          <span>to</span>
-        </div>
-
-        {['qwertyuiop', 'asdfghjkl', 'zxcvbnm'].map((row) => (
-          <div key={row} className="flex justify-center gap-1.5">
-            {row.split('').map((key) => (
-              <span
-                key={key}
-                className="grid h-[42px] min-w-[30px] place-items-center rounded-[6px] bg-white text-[16px] shadow-[0_1px_0_rgba(0,0,0,0.35)]"
-              >
-                {key}
-              </span>
-            ))}
-          </div>
-        ))}
-
-        <div className="flex justify-center gap-1.5">
-          <span className="grid h-[42px] min-w-[64px] place-items-center rounded-[6px] bg-white text-[13px] shadow-[0_1px_0_rgba(0,0,0,0.35)]">ABC</span>
-          <span className="grid h-[42px] w-[172px] place-items-center rounded-[6px] bg-white text-[16px] shadow-[0_1px_0_rgba(0,0,0,0.35)]">space</span>
-          <span className="grid h-[42px] min-w-[64px] place-items-center rounded-[6px] bg-white text-[13px] shadow-[0_1px_0_rgba(0,0,0,0.35)]">return</span>
-        </div>
       </section>
     </ScreenFrame>
   )
 }
 
-export default SearchScreen
+export default InventoryScreen

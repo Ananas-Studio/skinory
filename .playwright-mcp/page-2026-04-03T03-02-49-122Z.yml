@@ -1,0 +1,37 @@
+- generic [ref=e2]:
+  - main [ref=e4]:
+    - generic [ref=e5]:
+      - img [ref=e6]
+      - paragraph [ref=e8]: Analysis Failed
+      - paragraph [ref=e9]: No product selected for evaluation
+      - button "Try Again" [ref=e10] [cursor=pointer]
+  - navigation [ref=e12]:
+    - link "Home" [ref=e13] [cursor=pointer]:
+      - /url: /home
+      - generic [ref=e14]:
+        - img
+      - generic [ref=e15]: Home
+    - link "Inventory" [ref=e16] [cursor=pointer]:
+      - /url: /inventory
+      - generic [ref=e17]:
+        - img
+      - generic [ref=e18]: Inventory
+    - link "Scan" [ref=e19] [cursor=pointer]:
+      - /url: /scan
+      - generic [ref=e20]:
+        - img
+    - link "Adviser" [ref=e21] [cursor=pointer]:
+      - /url: /adviser/chat
+      - generic [ref=e22]:
+        - img
+      - generic [ref=e23]: Adviser
+    - link "Routine" [ref=e24] [cursor=pointer]:
+      - /url: /home
+      - generic [ref=e25]:
+        - img
+      - generic [ref=e26]: Routine
+  - main [ref=e28]:
+    - region "Skinory splash" [ref=e29]:
+      - img [ref=e30]:
+        - generic [ref=e31]: Skinory · Skinory · Skinory · Skinory · Skinory · Skinory ·
+      - img [ref=e32]

@@ -1,0 +1,36 @@
+- generic [ref=e2]:
+  - main [ref=e4]:
+    - generic [ref=e8]:
+      - button [ref=e9] [cursor=pointer]:
+        - img
+      - heading "Scan Product" [level=1] [ref=e10]
+  - navigation [ref=e13]:
+    - link "Home" [ref=e14] [cursor=pointer]:
+      - /url: /home
+      - generic [ref=e15]:
+        - img
+      - generic [ref=e16]: Home
+    - link "Inventory" [ref=e17] [cursor=pointer]:
+      - /url: /inventory
+      - generic [ref=e18]:
+        - img
+      - generic [ref=e19]: Inventory
+    - link "Scan" [ref=e20] [cursor=pointer]:
+      - /url: /scan
+      - generic [ref=e21]:
+        - img
+    - link "Adviser" [ref=e22] [cursor=pointer]:
+      - /url: /adviser/chat
+      - generic [ref=e23]:
+        - img
+      - generic [ref=e24]: Adviser
+    - link "Routine" [ref=e25] [cursor=pointer]:
+      - /url: /home
+      - generic [ref=e26]:
+        - img
+      - generic [ref=e27]: Routine
+  - main [ref=e29]:
+    - region "Skinory splash" [ref=e30]:
+      - img [ref=e31]:
+        - generic [ref=e32]: Skinory · Skinory · Skinory · Skinory · Skinory · Skinory ·
+      - img [ref=e33]

@@ -1,42 +1,82 @@
-import { Camera, Link as LinkIcon } from '@skinory/ui/icons'
+import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { Camera, Link } from '@skinory/ui/icons'
 import { Button } from '@skinory/ui/components/button'
 import { products } from './data'
-import { ProductCard, ScreenFrame } from './shared'
+import { HorizontalProductCard } from './shared'
+import { listProducts, type ProductListItem } from '../lib/scan-api'
+import { useAuth } from '../contexts/auth-context'
 
 function AdviserScanScreen() {
+  const navigate = useNavigate()
+  const { user } = useAuth()
+  const userId = user!.id
+  const productImage = '/introduction-image.png'
+  const [availableProducts, setAvailableProducts] = useState<ProductListItem[]>([])
+
+  useEffect(() => {
+    listProducts(userId).then(setAvailableProducts).catch(console.error)
+  }, [userId])
+
+  const analysisItems = [
+    products[0],
+    products[1],
+    products[2],
+    products[0],
+    products[0],
+    products[1],
+  ]
+
+  function handleScanProduct() {
+    if (availableProducts.length > 0) {
+      navigate('/adviser/result', {
+        state: { productId: availableProducts[0].id },
+      })
+    } else {
+      navigate('/scan')
+    }
+  }
+
   return (
-    <ScreenFrame>
-      <section className="flex flex-col gap-3.5">
-        <h1 className="text-[24px] leading-none font-medium">Adviser</h1>
+    <div className="px-4 pt-4">
+      <section className="flex flex-col gap-6">
+        <h1 className="text-center text-base leading-none font-semibold">Adviser</h1>
 
         <div className="grid grid-cols-2 gap-4">
           <Button
             type="button"
-            className="flex min-h-[108px] flex-col items-center justify-center gap-2 rounded-[16px] border border-[#e4e4e7] bg-white text-[14px] leading-[16px] text-[#18181b] shadow-[0_0_12px_rgba(0,0,0,0.1)]"
+            onClick={handleScanProduct}
+            className="flex min-h-27 flex-col items-center justify-center gap-2 rounded-[20px] border-0 bg-[#ee886e] px-7.75 py-6 text-base leading-none font-medium text-white shadow-none hover:bg-[#e57f65]"
           >
-            <Camera size={30} />
+            <Camera size={36} />
             Scan a product
           </Button>
           <Button
             type="button"
             variant="outline"
-            className="flex min-h-[108px] flex-col items-center justify-center gap-2 rounded-[16px] border-[#e4e4e7] bg-white text-[14px] leading-[16px] text-[#18181b] shadow-none hover:bg-white"
+            className="flex min-h-27 flex-col items-center justify-center gap-2 rounded-[20px] border-0 bg-[#e9e9eb] px-7.75 py-6 text-base leading-none font-medium text-[#09090b] shadow-none hover:bg-[#e4e4e7]"
           >
-            <LinkIcon size={30} />
-            Link a product
+            <Link size={36} />
+            Copy Link
           </Button>
         </div>
       </section>
 
-      <section className="mt-[18px] flex flex-1 flex-col gap-3 pb-[102px]">
-        <h2 className="text-[16px] leading-none font-semibold">Recent Analysis</h2>
-        <div className="flex max-h-[500px] flex-col gap-2.5 overflow-y-auto">
-          {Array.from({ length: 6 }).map((_, index) => (
-            <ProductCard key={`analysis-${index}`} item={products[index % 3]} />
+      <section className="mt-6 flex flex-1 flex-col gap-4 pb-25.5">
+        <h2 className="text-base leading-none font-medium text-black">Recent Analysis</h2>
+        <div className="flex flex-col gap-3 overflow-y-auto">
+          {analysisItems.map((item, index) => (
+            <HorizontalProductCard
+              key={`analysis-${index}`}
+              item={item}
+              imageSrc={productImage}
+              showDecisionPanel
+              className="h-19 rounded-2xl"
+            />
           ))}
         </div>
       </section>
-    </ScreenFrame>
+    </div>
   )
 }
 

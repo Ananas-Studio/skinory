@@ -1,0 +1,133 @@
+- generic [ref=e2]:
+  - generic [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]:
+        - generic [ref=e7]:
+          - paragraph [ref=e8]: Welcome Back Sena!
+          - paragraph [ref=e9]: You own 6 products · Routine updated yesterday
+        - generic [ref=e10]:
+          - button [ref=e11] [cursor=pointer]:
+            - img
+          - button [ref=e12] [cursor=pointer]:
+            - img
+      - generic [ref=e13]:
+        - generic [ref=e14]:
+          - button "Scan a product" [ref=e15] [cursor=pointer]:
+            - img
+            - generic [ref=e16]: Scan a product
+          - button "Copy Link" [ref=e17] [cursor=pointer]:
+            - img
+            - generic [ref=e18]: Copy Link
+        - generic [ref=e19]:
+          - img [ref=e20]
+          - textbox "Type a command or search..." [ref=e23]
+    - generic [ref=e24]:
+      - generic [ref=e25]:
+        - heading "Last Scans" [level=2] [ref=e26]
+        - button "See all" [ref=e27] [cursor=pointer]
+      - generic "Last scans carousel" [ref=e28]:
+        - generic [ref=e29]:
+          - generic [ref=e30]:
+            - img "HydraBoost" [ref=e31]
+            - button "Add to favorites" [ref=e32]:
+              - img [ref=e33]
+          - generic [ref=e35]:
+            - paragraph [ref=e36]: HydraBoost
+            - paragraph [ref=e37]: Moisturizer Serum
+            - generic [ref=e38]:
+              - generic [ref=e39]: Sensitive
+              - generic [ref=e40]: Redness
+        - generic [ref=e41]:
+          - generic [ref=e42]:
+            - img "HydraBoost" [ref=e43]
+            - button "Add to favorites" [ref=e44]:
+              - img [ref=e45]
+          - generic [ref=e47]:
+            - paragraph [ref=e48]: HydraBoost
+            - paragraph [ref=e49]: Moisturizer Serum
+            - generic [ref=e50]:
+              - generic [ref=e51]: Sensitive
+              - generic [ref=e52]: Redness
+        - generic [ref=e53]:
+          - generic [ref=e54]:
+            - img "HydraBoost" [ref=e55]
+            - button "Add to favorites" [ref=e56]:
+              - img [ref=e57]
+          - generic [ref=e59]:
+            - paragraph [ref=e60]: HydraBoost
+            - paragraph [ref=e61]: Moisturizer Serum
+            - generic [ref=e62]:
+              - generic [ref=e63]: Sensitive
+              - generic [ref=e64]: Redness
+    - generic [ref=e65]:
+      - heading "Popular Products" [level=2] [ref=e66]
+      - generic [ref=e67]:
+        - generic [ref=e68]: All
+        - generic [ref=e69]: Sensitive
+        - generic [ref=e70]: Redness
+        - generic [ref=e71]: Moisturizing
+        - generic [ref=e72]: Anti Aging
+      - generic [ref=e73]:
+        - generic [ref=e74]:
+          - generic [ref=e75]:
+            - img "HydraBoost" [ref=e76]
+            - button "Add to favorites" [ref=e77]:
+              - img [ref=e78]
+          - generic [ref=e80]:
+            - paragraph [ref=e81]: HydraBoost
+            - paragraph [ref=e82]: Moisturizer Serum
+            - generic [ref=e83]:
+              - generic [ref=e84]: Sensitive
+              - generic [ref=e85]: Redness
+        - generic [ref=e86]:
+          - generic [ref=e87]:
+            - img "HydraBoost" [ref=e88]
+            - button "Add to favorites" [ref=e89]:
+              - img [ref=e90]
+          - generic [ref=e92]:
+            - paragraph [ref=e93]: HydraBoost
+            - paragraph [ref=e94]: Moisturizer Serum
+            - generic [ref=e95]:
+              - generic [ref=e96]: Sensitive
+              - generic [ref=e97]: Redness
+        - generic [ref=e98]:
+          - generic [ref=e99]:
+            - img "HydraBoost" [ref=e100]
+            - button "Add to favorites" [ref=e101]:
+              - img [ref=e102]
+          - generic [ref=e104]:
+            - paragraph [ref=e105]: HydraBoost
+            - paragraph [ref=e106]: Moisturizer Serum
+            - generic [ref=e107]:
+              - generic [ref=e108]: Sensitive
+              - generic [ref=e109]: Redness
+  - navigation [ref=e111]:
+    - link "Home" [ref=e112] [cursor=pointer]:
+      - /url: /home
+      - generic [ref=e113]:
+        - img
+      - generic [ref=e114]: Home
+    - link "Inventory" [ref=e115] [cursor=pointer]:
+      - /url: /inventory
+      - generic [ref=e116]:
+        - img
+      - generic [ref=e117]: Inventory
+    - link "Scan" [ref=e118] [cursor=pointer]:
+      - /url: /scan
+      - generic [ref=e119]:
+        - img
+    - link "Adviser" [ref=e120] [cursor=pointer]:
+      - /url: /adviser/chat
+      - generic [ref=e121]:
+        - img
+      - generic [ref=e122]: Adviser
+    - link "Routine" [ref=e123] [cursor=pointer]:
+      - /url: /home
+      - generic [ref=e124]:
+        - img
+      - generic [ref=e125]: Routine
+  - main [ref=e127]:
+    - region "Skinory splash" [ref=e128]:
+      - img [ref=e129]:
+        - generic [ref=e130]: Skinory · Skinory · Skinory · Skinory · Skinory · Skinory ·
+      - img [ref=e131]

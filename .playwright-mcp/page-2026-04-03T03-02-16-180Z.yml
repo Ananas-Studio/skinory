@@ -1,0 +1,24 @@
+- main [ref=e4]:
+  - heading "Skinory Screens" [level=1] [ref=e5]
+  - paragraph [ref=e6]: Figma implementation pages
+  - generic [ref=e7]:
+    - link "Introduction" [ref=e8] [cursor=pointer]:
+      - /url: /introduction
+    - link "Sign In" [ref=e9] [cursor=pointer]:
+      - /url: /signin
+    - link "Home" [ref=e10] [cursor=pointer]:
+      - /url: /home
+    - link "Search & Last Scans" [ref=e11] [cursor=pointer]:
+      - /url: /search
+    - link "Inventory" [ref=e12] [cursor=pointer]:
+      - /url: /inventory
+    - link "Scan" [ref=e13] [cursor=pointer]:
+      - /url: /scan
+    - link "Adviser Scan" [ref=e14] [cursor=pointer]:
+      - /url: /adviser/scan
+    - link "Adviser Result" [ref=e15] [cursor=pointer]:
+      - /url: /adviser/result
+    - link "Adviser Chat Open" [ref=e16] [cursor=pointer]:
+      - /url: /adviser/chat
+    - link "Adviser Chatting" [ref=e17] [cursor=pointer]:
+      - /url: /adviser/chatting

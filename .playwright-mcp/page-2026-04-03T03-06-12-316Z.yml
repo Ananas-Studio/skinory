@@ -1,0 +1,56 @@
+- generic [ref=e2]:
+  - main [ref=e4]:
+    - generic [ref=e5]:
+      - button [ref=e6] [cursor=pointer]:
+        - img
+      - paragraph [ref=e7]: Skinory Adviser
+    - generic [ref=e11]:
+      - generic [ref=e12]:
+        - paragraph [ref=e13]: Hi Sena,
+        - paragraph [ref=e14]: How can I help you today?
+      - paragraph [ref=e15]: Let's enhance your skincare routine for a glow with some great tips and products!
+    - generic [ref=e16]:
+      - button "How to take care of oily skin" [ref=e17]:
+        - generic [ref=e18]: How to take care of oily skin
+      - button "Best products for oily skin" [ref=e19]:
+        - generic [ref=e20]: Best products for oily skin
+      - button "Tips for preventing acne on oily skin" [ref=e21]:
+        - generic [ref=e22]: Tips for preventing acne on oily skin
+      - button "Effective skincare routine for oily skin" [ref=e23]:
+        - generic [ref=e24]: Effective skincare routine for oily skin
+    - generic [ref=e26]:
+      - generic [ref=e27]:
+        - img [ref=e29]
+        - textbox "Type a command or search..." [ref=e32]
+      - button [disabled]:
+        - img
+  - navigation [ref=e34]:
+    - link "Home" [ref=e35] [cursor=pointer]:
+      - /url: /home
+      - generic [ref=e36]:
+        - img
+      - generic [ref=e37]: Home
+    - link "Inventory" [ref=e38] [cursor=pointer]:
+      - /url: /inventory
+      - generic [ref=e39]:
+        - img
+      - generic [ref=e40]: Inventory
+    - link "Scan" [ref=e41] [cursor=pointer]:
+      - /url: /scan
+      - generic [ref=e42]:
+        - img
+    - link "Adviser" [ref=e43] [cursor=pointer]:
+      - /url: /adviser/chat
+      - generic [ref=e44]:
+        - img
+      - generic [ref=e45]: Adviser
+    - link "Routine" [ref=e46] [cursor=pointer]:
+      - /url: /home
+      - generic [ref=e47]:
+        - img
+      - generic [ref=e48]: Routine
+  - main [ref=e50]:
+    - region "Skinory splash" [ref=e51]:
+      - img [ref=e52]:
+        - generic [ref=e53]: Skinory · Skinory · Skinory · Skinory · Skinory · Skinory ·
+      - img [ref=e54]

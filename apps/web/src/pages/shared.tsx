@@ -28,7 +28,7 @@ const frameVariantClasses: Record<'splash' | 'gradient' | 'paper' | 'camera', st
 
 const cameraBackgroundStyle: CSSProperties = {
   backgroundImage:
-    "linear-gradient(0deg, rgba(24, 24, 27, 0.18), rgba(24, 24, 27, 0.18)), url('https://www.figma.com/api/mcp/asset/29d1584c-7503-448b-8d67-6fa535673a1e')",
+    "linear-gradient(0deg, rgba(24, 24, 27, 0.18), rgba(24, 24, 27, 0.18)), linear-gradient(180deg, #2a2a2e 0%, #18181b 100%)",
 }
 
 export function ScreenFrame({
@@ -88,36 +88,44 @@ export function HorizontalProductCard({
   item,
   imageSrc = '/introduction-image.png',
   className,
+  showDecisionPanel = false,
 }: {
   item: Product
   imageSrc?: string
   className?: string
+  showDecisionPanel?: boolean
 }) {
+  const decisionPanelClassByDecision: Record<Decision, string> = {
+    Buy: 'bg-[#e1fee6]',
+    "Don't Buy": 'bg-[#fee1e1]',
+    Caution: 'bg-[#fef4e1]',
+  }
+
   return (
     <Card className={cn('flex overflow-hidden rounded-xl border border-border p-0 shadow-none flex-row items-end gap-0', className)}>
       <img
         src={imageSrc}
         alt={item.name}
-        className="size-21 shrink-0 object-cover"
+        className={cn('size-21 shrink-0 object-cover', showDecisionPanel && 'h-full w-21.5')}
         loading="lazy"
       />
 
-      <div className="flex min-w-0 flex-1 justify-between items-end gap-3 p-2.5">
-        <div className="min-w-0">
-          <p className="truncate text-[14px] leading-[18px] font-normal text-primary">
+      <div className={cn('flex min-w-0 flex-1 justify-between items-end gap-3 p-2.5', showDecisionPanel && 'items-start gap-0 p-0')}>
+        <div className={cn('min-w-0', showDecisionPanel && 'min-w-0 flex-1 px-2.5 py-2')}>
+          <p className={cn('truncate text-[14px] leading-[18px] font-normal text-primary', showDecisionPanel && 'text-sm leading-none font-medium text-[#0f172a]')}>
             {item.name}
           </p>
-          <p className="truncate text-[12px] leading-[16px] font-normal text-sidebar-foreground">
+          <p className={cn('truncate text-[12px] leading-[16px] font-normal text-sidebar-foreground', showDecisionPanel && 'mt-1 text-sm leading-none text-[#334155]')}>
             {item.subtitle}
           </p>
 
           {item.tags.length ? (
-            <div className="mt-2 flex flex-wrap gap-2">
+            <div className={cn('mt-2 flex flex-wrap gap-2', showDecisionPanel && 'mt-1.5 gap-1.5')}>
               {item.tags.map((tag) => (
                 <Badge
                   key={tag}
                   variant="outline"
-                  className="rounded-sm px-1 font-normal text-[#18181b]"
+                  className={cn('rounded-sm px-1 font-normal text-[#18181b]', showDecisionPanel && 'rounded-md border-[#e4e4e7] bg-white px-1.5 py-0.5 text-xs leading-4 text-[#09090b]')}
                 >
                   {tag}
                 </Badge>
@@ -126,7 +134,26 @@ export function HorizontalProductCard({
           ) : null}
         </div>
 
-        <ArrowRight size={18} className="shrink-0 size-4.5 text-foreground" aria-hidden="true" />
+        {showDecisionPanel && item.decision ? (
+          <div
+            className={cn(
+              'flex h-[stretch] w-14 items-center justify-center border-l border-[#e4e4e7] px-3 text-center text-xs leading-4 font-medium text-black',
+              decisionPanelClassByDecision[item.decision]
+            )}
+          >
+            {item.decision === "Don't Buy" ? (
+              <span>
+                Don&apos;t
+                <br />
+                Buy
+              </span>
+            ) : (
+              item.decision
+            )}
+          </div>
+        ) : (
+          <ArrowRight size={18} className="shrink-0 size-4.5 text-foreground" aria-hidden="true" />
+        )}
       </div>
     </Card>
   )
@@ -136,10 +163,14 @@ export function VerticalProductCard({
   item,
   imageSrc = '/introduction-image.png',
   className,
+  isFavorited = false,
+  onToggleFavorite,
 }: {
   item: Product
   imageSrc?: string
   className?: string
+  isFavorited?: boolean
+  onToggleFavorite?: () => void
 }) {
   return (
     <Card className={cn('shrink-0 overflow-hidden size-fit w-[152px] gap-0 box-content rounded-[16px] border border-border p-0 shadow-none', className)}>
@@ -152,10 +183,14 @@ export function VerticalProductCard({
         />
         <button
           type="button"
-          aria-label="Add to favorites"
+          aria-label={isFavorited ? 'Remove from favorites' : 'Add to favorites'}
           className="absolute top-2 right-2 grid h-8 w-8 place-items-center rounded-full border border-white/60 bg-white/40 text-white backdrop-blur-sm"
+          onClick={(e) => {
+            e.stopPropagation()
+            onToggleFavorite?.()
+          }}
         >
-          <Heart size={16} strokeWidth={2} />
+          <Heart size={16} strokeWidth={2} fill={isFavorited ? 'currentColor' : 'none'} className={isFavorited ? 'text-red-500' : ''} />
         </button>
       </div>
 
@@ -229,35 +264,60 @@ export function BottomNav({ active, className }: { active: NavKey; className?: s
   )
 }
 
-export function SearchField({ placeholder = 'Type a command or search...', className }: { placeholder?: string; className?: string }) {
+export function SearchField({
+  placeholder = 'Type a command or search...',
+  className,
+  value,
+  onChange,
+  onSubmit,
+}: {
+  placeholder?: string
+  className?: string
+  value?: string
+  onChange?: (value: string) => void
+  onSubmit?: (value: string) => void
+}) {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      const val = (e.target as HTMLInputElement).value.trim()
+      if (val && onSubmit) onSubmit(val)
+    }
+  }
+
   return (
     <div className={cn("flex min-h-10 items-center gap-2 rounded-md bg-white px-3 py-2.5 text-[#a1a1aa]", className)}>
       <Search size={16} className="shrink-0" />
       <Input
         placeholder={placeholder}
-        className="h-auto border-0 bg-transparent p-0 text-[14px] text-[#a1a1aa] shadow-none placeholder:text-[#a1a1aa] focus-visible:ring-0"
+        value={value}
+        onChange={onChange ? (e) => onChange(e.target.value) : undefined}
+        onKeyDown={handleKeyDown}
+        className="h-auto border-0 bg-transparent p-0 text-[14px] text-[#18181b] shadow-none placeholder:text-[#a1a1aa] focus-visible:ring-0"
       />
     </div>
   )
 }
 
-export function IconButton({ children, muted = false }: { children: ReactNode; muted?: boolean }) {
+export function IconButton({ children, className, variant = 'default', muted = false, onClick }: { children: ReactNode; className?: string; variant?: 'default' | 'outline'; muted?: boolean; onClick?: () => void }) {
   return (
     <Button
       type="button"
-      variant="default"
+      variant={variant}
       size="icon"
-      className={cn('h-9 w-9 rounded-xl bg-white/90 text-[#09090b] shadow-none hover:bg-white', muted && 'opacity-45')}
+      onClick={onClick}
+      className={cn('h-9 w-9 rounded-xl bg-white/90 text-[#09090b] shadow-none hover:bg-white', className, muted && 'opacity-45')}
     >
       {children}
     </Button>
   )
 }
 
-export function PrimaryButton({ children, className = '' }: { children: ReactNode; className?: string }) {
+export function PrimaryButton({ children, className = '', onClick }: { children: ReactNode; className?: string; onClick?: () => void }) {
   return (
     <Button
       type="button"
+      onClick={onClick}
       className={cn(
         'inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-[#ee886e] px-3 py-2 text-[14px] leading-[24px] font-medium text-[#fafafa] hover:bg-[#e27f66]',
         className
@@ -268,11 +328,12 @@ export function PrimaryButton({ children, className = '' }: { children: ReactNod
   )
 }
 
-export function SecondaryButton({ children, className = '' }: { children: ReactNode; className?: string }) {
+export function SecondaryButton({ children, className = '', onClick }: { children: ReactNode; className?: string; onClick?: () => void }) {
   return (
     <Button
       type="button"
       variant="outline"
+      onClick={onClick}
       className={cn(
         'inline-flex min-h-12 items-center justify-center gap-2 rounded-full border-[#e4e4e7] bg-white px-3 py-2 text-[14px] leading-[24px] font-medium text-[#09090b] shadow-none hover:bg-white',
         className
@@ -283,14 +344,15 @@ export function SecondaryButton({ children, className = '' }: { children: ReactN
   )
 }
 
-export function Chip({ children, active = false }: { children: ReactNode; active?: boolean }) {
+export function Chip({ children, active = false, onClick }: { children: ReactNode; active?: boolean; onClick?: () => void }) {
   return (
     <Badge
       variant="outline"
       className={cn(
-        'whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs leading-4 font-normal',
+        'whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs leading-4 font-normal cursor-pointer select-none',
         active ? 'border-primary bg-primary text-white' : 'border-none bg-[#FEE7E1] text-primary font-medium'
       )}
+      onClick={onClick}
     >
       {children}
     </Badge>
