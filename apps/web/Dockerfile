@@ -27,11 +27,14 @@ RUN pnpm --filter web build
 # ── Stage 3: Serve with nginx ──
 FROM nginx:alpine AS runner
 
-# Copy custom nginx config
-COPY apps/web/nginx.conf /etc/nginx/conf.d/default.conf
+# Use templates dir for env-var substitution at startup
+COPY apps/web/nginx.conf /etc/nginx/templates/default.conf.template
 
 # Copy built assets
 COPY --from=builder /app/apps/web/dist /usr/share/nginx/html
+
+# Default API_URL for docker-compose local dev
+ENV API_URL=http://api:4000
 
 EXPOSE 3000
 

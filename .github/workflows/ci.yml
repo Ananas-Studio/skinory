@@ -40,7 +40,7 @@ jobs:
         timeout-minutes: 15
         strategy:
             matrix:
-                app: [web, landing]
+                app: [web, landing, api]
         steps:
             - uses: actions/checkout@v4
 
@@ -117,7 +117,7 @@ jobs:
         timeout-minutes: 20
         strategy:
             matrix:
-                app: [web, landing]
+                app: [web, landing, api]
         steps:
             - uses: actions/checkout@v4
 
