@@ -16,6 +16,7 @@ export async function testDatabaseConnection(): Promise<void> {
   if (env.dbSyncOnStart) {
     await sequelize.sync({
       force: env.dbSyncForce,
+      alter: !env.dbSyncForce,
     });
   }
 }
