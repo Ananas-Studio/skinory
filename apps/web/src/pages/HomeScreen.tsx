@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Bell, Check, LinkIcon, Loader2, ScanLine, UserRound } from '@skinory/ui/icons'
+import { Bell, LinkIcon, Loader2, ScanLine, UserRound } from '@skinory/ui/icons'
 import { Button } from '@skinory/ui/components/button'
 import {
   Chip,
@@ -12,6 +12,7 @@ import { fetchScanHistory, type ScanHistoryItem } from '../lib/scan-api'
 import { addFavorite, fetchFavoriteIds, removeFavorite } from '../lib/favorites-api'
 import { fetchProducts, type ProductListItem } from '../lib/products-api'
 import { useAuth } from '../contexts/auth-context'
+import { LinkAnalyzerModal } from '../components/link-analyzer-modal'
 
 const CATEGORY_FILTERS = [
   { label: 'All', value: undefined },
@@ -28,7 +29,7 @@ function HomeScreen() {
   const { user } = useAuth()
   const userId = user!.id
   const [searchQuery, setSearchQuery] = useState('')
-  const [linkCopied, setLinkCopied] = useState(false)
+  const [linkModalOpen, setLinkModalOpen] = useState(false)
   const [scanHistory, setScanHistory] = useState<ScanHistoryItem[]>([])
   const [historyTotal, setHistoryTotal] = useState(0)
   const [historyLoading, setHistoryLoading] = useState(true)
@@ -143,16 +144,6 @@ function HomeScreen() {
     }
   }, [favoriteIds])
 
-  const handleCopyLink = useCallback(async () => {
-    try {
-      await navigator.clipboard.writeText(window.location.origin)
-      setLinkCopied(true)
-      setTimeout(() => setLinkCopied(false), 2000)
-    } catch {
-      // Clipboard API not available
-    }
-  }, [])
-
   const handleSearch = useCallback(
     (query: string) => {
       navigate(`/search?q=${encodeURIComponent(query)}`)
@@ -194,19 +185,10 @@ function HomeScreen() {
               type='button'
               variant={"default"}
               className='bg-white hover:bg-[#f3f4f6] flex-1'
-              onClick={handleCopyLink}
+              onClick={() => setLinkModalOpen(true)}
             >
-              {linkCopied ? (
-                <>
-                  <Check size={16} className='text-green-600' />
-                  <span className='text-green-600 text-sm leading-5'>Copied!</span>
-                </>
-              ) : (
-                <>
-                  <LinkIcon size={16} className='text-black' />
-                  <span className='text-black text-sm leading-5'>Copy Link</span>
-                </>
-              )}
+              <LinkIcon size={16} className='text-black' />
+              <span className='text-black text-sm leading-5'>Paste Link</span>
             </Button>
           </div>
 
@@ -312,6 +294,8 @@ function HomeScreen() {
           {loadingMore && <Loader2 size={20} className="animate-spin text-[#EE886E]" />}
         </div>
       </section>
+
+      <LinkAnalyzerModal open={linkModalOpen} onOpenChange={setLinkModalOpen} />
     </div>
   )
 }

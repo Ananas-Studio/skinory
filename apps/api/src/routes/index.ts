@@ -6,6 +6,7 @@ import { inventoryRouter } from "./inventory.route.js";
 import { productsRouter } from "./products.route.js";
 import { profileRouter } from "./profile.route.js";
 import { scanRouter } from "./scan.route.js";
+import { socialRouter } from "./social.route.js";
 
 const router = Router();
 
@@ -16,5 +17,6 @@ router.use("/inventory", inventoryRouter);
 router.use("/products", productsRouter);
 router.use("/profile", profileRouter);
 router.use("/scan", scanRouter);
+router.use("/social", socialRouter);
 
 export { router };
