@@ -82,13 +82,17 @@ const GoogleAuthButton = ({
 
   const resolvedClientId = useMemo(() => normalizeClientId(clientId), [clientId])
 
-  // Keep a stable ref to the latest callback to avoid re-initializing GIS on every render
+  // Keep stable refs to callbacks to avoid re-initializing GIS on every render
   const onCredentialRef = useRef(onCredential)
   onCredentialRef.current = onCredential
+  const onReadyChangeRef = useRef(onReadyChange)
+  onReadyChangeRef.current = onReadyChange
+  const onErrorRef = useRef(onError)
+  onErrorRef.current = onError
 
   useEffect(() => {
     if (!resolvedClientId) {
-      onReadyChange?.(false)
+      onReadyChangeRef.current?.(false)
       return
     }
 
@@ -107,13 +111,13 @@ const GoogleAuthButton = ({
           client_id: resolvedClientId,
           callback: (response) => {
             if (!response.credential) {
-              if (!isCancelled) onError?.('Google credential alinamadi.')
+              if (!isCancelled) onErrorRef.current?.('Google credential alinamadi.')
               return
             }
 
             const claims = decodeJwtPayload(response.credential)
             if (!claims || !claims.sub) {
-              if (!isCancelled) onError?.('Google token okunamadi.')
+              if (!isCancelled) onErrorRef.current?.('Google token okunamadi.')
               return
             }
 
@@ -128,7 +132,7 @@ const GoogleAuthButton = ({
             setIsLoading(true)
             void Promise.resolve(onCredentialRef.current(payload))
               .catch(() => {
-                if (!isCancelled) onError?.('Google giris islenirken hata olustu.')
+                if (!isCancelled) onErrorRef.current?.('Google giris islenirken hata olustu.')
               })
               .finally(() => {
                 if (!isCancelled) setIsLoading(false)
@@ -138,15 +142,15 @@ const GoogleAuthButton = ({
         })
 
         readyRef.current = true
-        onReadyChange?.(true)
+        onReadyChangeRef.current?.(true)
       } catch {
         if (!isCancelled) {
-          onError?.('Google OAuth baslatilamadi. Client ID ayarlarini kontrol edin.')
+          onErrorRef.current?.('Google OAuth baslatilamadi. Client ID ayarlarini kontrol edin.')
         }
       }
     }
 
-    onReadyChange?.(false)
+    onReadyChangeRef.current?.(false)
 
     if (window.google?.accounts?.id) {
       configureGoogle()
@@ -156,8 +160,8 @@ const GoogleAuthButton = ({
         const onLoad = () => configureGoogle()
         const onErr = () => {
           if (!isCancelled) {
-            onReadyChange?.(false)
-            onError?.('Google script yuklenemedi.')
+            onReadyChangeRef.current?.(false)
+            onErrorRef.current?.('Google script yuklenemedi.')
           }
         }
         el.addEventListener('load', onLoad, { once: true })
@@ -182,11 +186,11 @@ const GoogleAuthButton = ({
     return () => {
       isCancelled = true
       readyRef.current = false
-      onReadyChange?.(false)
+      onReadyChangeRef.current?.(false)
       cleanupLoad?.()
       cleanupError?.()
     }
-  }, [resolvedClientId, onReadyChange, onError])
+  }, [resolvedClientId])
 
   const handleClick = (): void => {
     if (!resolvedClientId) {
