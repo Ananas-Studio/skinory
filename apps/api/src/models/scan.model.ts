@@ -14,6 +14,7 @@ export class Scan extends Model<InferAttributes<Scan>, InferCreationAttributes<S
   declare id: CreationOptional<string>;
   declare userId: ForeignKey<string> | null;
   declare guestSessionId: ForeignKey<string> | null;
+  declare productId: ForeignKey<string> | null;
   declare barcodeValue: CreationOptional<string | null>;
   declare scanType: (typeof SCAN_TYPES)[number];
   declare resultStatus: (typeof SCAN_RESULT_STATUSES)[number];
@@ -38,6 +39,14 @@ export class Scan extends Model<InferAttributes<Scan>, InferCreationAttributes<S
           allowNull: true,
           field: "guest_session_id",
           references: { model: "guest_sessions", key: "id" },
+          onDelete: "SET NULL",
+          onUpdate: "CASCADE",
+        },
+        productId: {
+          type: DataTypes.UUID,
+          allowNull: true,
+          field: "product_id",
+          references: { model: "products", key: "id" },
           onDelete: "SET NULL",
           onUpdate: "CASCADE",
         },
@@ -84,6 +93,7 @@ export class Scan extends Model<InferAttributes<Scan>, InferCreationAttributes<S
         indexes: [
           { fields: ["user_id"] },
           { fields: ["guest_session_id"] },
+          { fields: ["product_id"] },
           { fields: ["result_status"] },
         ],
       }
@@ -95,5 +105,6 @@ export class Scan extends Model<InferAttributes<Scan>, InferCreationAttributes<S
   static associate(models: DbModels): void {
     Scan.belongsTo(models.User, { foreignKey: "userId", as: "user" });
     Scan.belongsTo(models.GuestSession, { foreignKey: "guestSessionId", as: "guestSession" });
+    Scan.belongsTo(models.Product, { foreignKey: "productId", as: "product" });
   }
 }

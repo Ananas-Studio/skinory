@@ -119,7 +119,8 @@ socialRouter.post("/enrich", requireAuth, async (req, res) => {
       return
     }
 
-    const enriched = await enrichProducts(parseResult.data.products)
+    const userId = (req as any).authUserId as string
+    const enriched = await enrichProducts(parseResult.data.products, userId)
 
     res.status(200).json({ ok: true, data: { products: enriched } })
   } catch (error) {

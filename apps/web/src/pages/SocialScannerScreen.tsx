@@ -238,7 +238,7 @@ function SocialScannerScreen() {
   // ── Navigate to product evaluation ───────────────────────────────────
   const handleInspect = useCallback(
     (productId: string) => {
-      navigate(`/products/${productId}`)
+      navigate('/adviser/result', { state: { productId } })
     },
     [navigate],
   )
@@ -405,7 +405,7 @@ function SocialScannerScreen() {
                         <ConfidenceLabel value={product.confidence} />
                       </div>
                     </div>
-                    {product.source === 'internal' && product.productId && (
+                    {product.productId && (
                       <Button
                         type="button"
                         variant="outline"

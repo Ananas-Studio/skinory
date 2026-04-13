@@ -87,8 +87,11 @@ scanRouter.get('/history', async (req: Request, res: Response) => {
     const { rows: scans, count: total } = await models.Scan.findAndCountAll({
       where: {
         userId,
-        barcodeValue: { [Op.ne]: null },
         resultStatus: 'success',
+        [Op.or]: [
+          { barcodeValue: { [Op.ne]: null } },
+          { productId: { [Op.ne]: null } },
+        ],
       },
       order: [['created_at', 'DESC']],
       limit,
@@ -127,14 +130,47 @@ scanRouter.get('/history', async (req: Request, res: Response) => {
       }
     }
 
-    const data = scans.map((s: any) => ({
-      id: s.id,
-      barcodeValue: s.barcodeValue,
-      scanType: s.scanType,
-      resultStatus: s.resultStatus,
-      createdAt: s.createdAt,
-      product: s.barcodeValue ? (productByBarcode.get(s.barcodeValue) ?? null) : null,
-    }))
+    // Batch-lookup products by productId (for URL-type scans)
+    const directProductIds = scans
+      .map((s: any) => s.productId)
+      .filter(Boolean) as string[]
+
+    const directProducts = directProductIds.length > 0
+      ? await models.Product.findAll({
+          where: { id: directProductIds },
+          include: [{ model: models.Brand, as: 'brand' }],
+        })
+      : []
+
+    const productById = new Map<string, any>()
+    for (const p of directProducts) {
+      const r = p as any
+      productById.set(r.id, {
+        id: r.id,
+        name: r.name,
+        brandName: r.brand?.name ?? null,
+        category: r.category,
+        imageUrl: r.imageUrl,
+      })
+    }
+
+    const data = scans.map((s: any) => {
+      // Prefer direct productId, fallback to barcode lookup
+      const product = s.productId
+        ? (productById.get(s.productId) ?? null)
+        : s.barcodeValue
+          ? (productByBarcode.get(s.barcodeValue) ?? null)
+          : null
+
+      return {
+        id: s.id,
+        barcodeValue: s.barcodeValue,
+        scanType: s.scanType,
+        resultStatus: s.resultStatus,
+        createdAt: s.createdAt,
+        product,
+      }
+    })
 
     res.json({ ok: true, data: { scans: data, total, limit, offset } })
   } catch (err: any) {
