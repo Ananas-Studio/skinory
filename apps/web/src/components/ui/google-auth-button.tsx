@@ -16,11 +16,12 @@ interface GoogleIdConfig {
   auto_select?: boolean
   cancel_on_tap_outside?: boolean
   itp_support?: boolean
+  use_fedcm_for_prompt?: boolean
 }
 
 interface GoogleAccountsId {
   initialize: (config: GoogleIdConfig) => void
-  prompt: (notification?: (n: { isNotDisplayed: () => boolean; isSkippedMoment: () => boolean }) => void) => void
+  prompt: () => void
   renderButton: (parent: HTMLElement, options: Record<string, unknown>) => void
   disableAutoSelect: () => void
 }
@@ -139,6 +140,7 @@ const GoogleAuthButton = ({
               })
           },
           cancel_on_tap_outside: true,
+          use_fedcm_for_prompt: true,
         })
 
         readyRef.current = true
@@ -204,14 +206,8 @@ const GoogleAuthButton = ({
       return
     }
 
-    // Trigger the One Tap / popup flow
-    gid.prompt((notification) => {
-      if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-        // Fallback: open the accounts chooser popup manually
-        // This happens when One Tap is blocked (e.g. in iframe or cooldown)
-        onError?.('Google popup gosterilemedi. Tarayici engelini kontrol edin.')
-      }
-    })
+    // Trigger the FedCM / One Tap prompt
+    gid.prompt()
   }
 
   return (
