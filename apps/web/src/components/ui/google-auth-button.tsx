@@ -2,44 +2,56 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '@skinory/ui/components/button'
 import { Google } from '@skinory/ui/icons'
 
-// ─── Google Identity Services (credential / One Tap) types ──────────────────
+// ─── Google Identity Services – OAuth2 Token Client types ────────────────────
 
-interface GoogleCredentialResponse {
-  credential?: string
-  select_by?: string
-  clientId?: string
+interface TokenResponse {
+  access_token: string
+  token_type: string
+  expires_in: number
+  scope: string
+  error?: string
+  error_description?: string
 }
 
-interface GoogleIdConfig {
+interface TokenClientConfig {
   client_id: string
-  callback: (response: GoogleCredentialResponse) => void
-  auto_select?: boolean
-  cancel_on_tap_outside?: boolean
-  itp_support?: boolean
-  use_fedcm_for_prompt?: boolean
+  scope: string
+  callback: (response: TokenResponse) => void
+  error_callback?: (error: { type: string; message?: string }) => void
 }
 
-interface GoogleAccountsId {
-  initialize: (config: GoogleIdConfig) => void
-  prompt: () => void
-  renderButton: (parent: HTMLElement, options: Record<string, unknown>) => void
-  disableAutoSelect: () => void
+interface TokenClient {
+  requestAccessToken: (overrides?: { prompt?: string }) => void
+}
+
+interface GoogleAccountsOauth2 {
+  initTokenClient: (config: TokenClientConfig) => TokenClient
+  revoke: (token: string, callback?: () => void) => void
 }
 
 declare global {
   interface Window {
     google?: {
       accounts?: {
-        id?: GoogleAccountsId
-        oauth2?: unknown
+        id?: unknown
+        oauth2?: GoogleAccountsOauth2
       }
     }
   }
 }
 
+// ─── Google Userinfo response ────────────────────────────────────────────────
+
+interface GoogleUserInfo {
+  sub: string
+  email?: string
+  name?: string
+  picture?: string
+}
+
 export interface GoogleCredentialPayload {
   providerUserId: string
-  idToken: string
+  idToken: string // access_token used as bearer token
   email?: string
   fullName?: string
   avatarUrl?: string
@@ -53,22 +65,12 @@ interface GoogleAuthButtonProps {
   disabled?: boolean
 }
 
-const scriptSelector = 'script[data-google-gsi="true"]'
+const GSI_SCRIPT_ID = 'google-gsi-script'
+const USERINFO_URL = 'https://www.googleapis.com/oauth2/v3/userinfo'
 
 function normalizeClientId(value?: string): string {
   if (typeof value !== 'string') return ''
   return value.trim().replace(/^['"]|['"]$/g, '')
-}
-
-function decodeJwtPayload(jwt: string): Record<string, unknown> | null {
-  try {
-    const parts = jwt.split('.')
-    if (parts.length !== 3) return null
-    const payload = parts[1].replace(/-/g, '+').replace(/_/g, '/')
-    return JSON.parse(atob(payload)) as Record<string, unknown>
-  } catch {
-    return null
-  }
 }
 
 const GoogleAuthButton = ({
@@ -78,12 +80,12 @@ const GoogleAuthButton = ({
   onError,
   disabled = false,
 }: GoogleAuthButtonProps) => {
-  const readyRef = useRef(false)
   const [isLoading, setIsLoading] = useState(false)
+  const tokenClientRef = useRef<TokenClient | null>(null)
 
   const resolvedClientId = useMemo(() => normalizeClientId(clientId), [clientId])
 
-  // Keep stable refs to callbacks to avoid re-initializing GIS on every render
+  // Stable refs for callbacks
   const onCredentialRef = useRef(onCredential)
   onCredentialRef.current = onCredential
   const onReadyChangeRef = useRef(onReadyChange)
@@ -98,78 +100,79 @@ const GoogleAuthButton = ({
     }
 
     let isCancelled = false
-    let cleanupLoad: (() => void) | null = null
-    let cleanupError: (() => void) | null = null
 
-    const configureGoogle = (): void => {
+    const initTokenClient = (): void => {
       if (isCancelled) return
 
-      const gid = window.google?.accounts?.id
-      if (!gid) return
+      const oauth2 = window.google?.accounts?.oauth2
+      if (!oauth2) return
 
-      try {
-        gid.initialize({
-          client_id: resolvedClientId,
-          callback: (response) => {
-            if (!response.credential) {
-              if (!isCancelled) onErrorRef.current?.('Google credential alinamadi.')
-              return
-            }
+      tokenClientRef.current = oauth2.initTokenClient({
+        client_id: resolvedClientId,
+        scope: 'openid email profile',
+        callback: async (response) => {
+          if (response.error || !response.access_token) {
+            if (!isCancelled) onErrorRef.current?.(`Google hatası: ${response.error_description ?? response.error ?? 'bilinmiyor'}`)
+            return
+          }
 
-            const claims = decodeJwtPayload(response.credential)
-            if (!claims || !claims.sub) {
-              if (!isCancelled) onErrorRef.current?.('Google token okunamadi.')
-              return
-            }
+          setIsLoading(true)
+          try {
+            // Fetch user profile from Google
+            const res = await fetch(USERINFO_URL, {
+              headers: { Authorization: `Bearer ${response.access_token}` },
+            })
+            if (!res.ok) throw new Error('Kullanıcı bilgisi alınamadı')
+
+            const userInfo = (await res.json()) as GoogleUserInfo
+            if (!userInfo.sub) throw new Error('Google sub ID bulunamadı')
 
             const payload: GoogleCredentialPayload = {
-              providerUserId: String(claims.sub),
-              idToken: response.credential,
-              email: typeof claims.email === 'string' ? claims.email : undefined,
-              fullName: typeof claims.name === 'string' ? claims.name : undefined,
-              avatarUrl: typeof claims.picture === 'string' ? claims.picture : undefined,
+              providerUserId: userInfo.sub,
+              idToken: response.access_token,
+              email: userInfo.email,
+              fullName: userInfo.name,
+              avatarUrl: userInfo.picture,
             }
 
-            setIsLoading(true)
-            void Promise.resolve(onCredentialRef.current(payload))
-              .catch(() => {
-                if (!isCancelled) onErrorRef.current?.('Google giris islenirken hata olustu.')
-              })
-              .finally(() => {
-                if (!isCancelled) setIsLoading(false)
-              })
-          },
-          cancel_on_tap_outside: true,
-          use_fedcm_for_prompt: true,
-        })
+            await Promise.resolve(onCredentialRef.current(payload))
+          } catch (err) {
+            if (!isCancelled) {
+              const msg = err instanceof Error ? err.message : 'Google girişi işlenirken hata oluştu.'
+              onErrorRef.current?.(msg)
+            }
+          } finally {
+            if (!isCancelled) setIsLoading(false)
+          }
+        },
+        error_callback: (error) => {
+          // Fires if the popup is closed or blocked
+          if (!isCancelled && error.type !== 'popup_closed') {
+            onErrorRef.current?.(`Google popup hatası: ${error.message ?? error.type}`)
+          }
+        },
+      })
 
-        readyRef.current = true
-        onReadyChangeRef.current?.(true)
-      } catch {
-        if (!isCancelled) {
-          onErrorRef.current?.('Google OAuth baslatilamadi. Client ID ayarlarini kontrol edin.')
-        }
-      }
+      if (!isCancelled) onReadyChangeRef.current?.(true)
     }
 
     onReadyChangeRef.current?.(false)
 
-    if (window.google?.accounts?.id) {
-      configureGoogle()
+    if (window.google?.accounts?.oauth2) {
+      initTokenClient()
     } else {
-      const existing = document.querySelector<HTMLScriptElement>(scriptSelector)
+      // Load the GSI script if not already present
+      const existing = document.getElementById(GSI_SCRIPT_ID) as HTMLScriptElement | null
       const bindScript = (el: HTMLScriptElement) => {
-        const onLoad = () => configureGoogle()
+        const onLoad = () => initTokenClient()
         const onErr = () => {
           if (!isCancelled) {
             onReadyChangeRef.current?.(false)
-            onErrorRef.current?.('Google script yuklenemedi.')
+            onErrorRef.current?.('Google script yüklenemedi.')
           }
         }
         el.addEventListener('load', onLoad, { once: true })
         el.addEventListener('error', onErr, { once: true })
-        cleanupLoad = () => el.removeEventListener('load', onLoad)
-        cleanupError = () => el.removeEventListener('error', onErr)
       }
 
       if (existing) {
@@ -179,7 +182,7 @@ const GoogleAuthButton = ({
         script.src = 'https://accounts.google.com/gsi/client'
         script.async = true
         script.defer = true
-        script.dataset.googleGsi = 'true'
+        script.id = GSI_SCRIPT_ID
         bindScript(script)
         document.head.appendChild(script)
       }
@@ -187,27 +190,24 @@ const GoogleAuthButton = ({
 
     return () => {
       isCancelled = true
-      readyRef.current = false
+      tokenClientRef.current = null
       onReadyChangeRef.current?.(false)
-      cleanupLoad?.()
-      cleanupError?.()
     }
   }, [resolvedClientId])
 
   const handleClick = (): void => {
     if (!resolvedClientId) {
-      onError?.('Google Client ID bos.')
+      onError?.('Google Client ID boş.')
       return
     }
 
-    const gid = window.google?.accounts?.id
-    if (!gid || !readyRef.current) {
-      onError?.('Google auth hazir degil, lutfen tekrar deneyin.')
+    if (!tokenClientRef.current) {
+      onError?.('Google auth hazır değil, lütfen tekrar deneyin.')
       return
     }
 
-    // Trigger the FedCM / One Tap prompt
-    gid.prompt()
+    // Opens the standard Google account picker popup
+    tokenClientRef.current.requestAccessToken({ prompt: 'select_account' })
   }
 
   return (
