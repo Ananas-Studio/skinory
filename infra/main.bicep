@@ -13,10 +13,13 @@ param openaiApiKey string
 
 @description('PostgreSQL admin password')
 @secure()
-param dbPassword string = 'Sk1nory${suffix}!'
+param dbPassword string
 
-@description('Container image tag')
+@description('Container image tag (use "init" on first deploy)')
 param imageTag string = 'latest'
+
+@description('Whether to deploy container apps (false on first run before images exist)')
+param deployApps bool = false
 
 // ─── Variables ───
 var prefix = 'skinory'
@@ -80,7 +83,6 @@ resource dbServer 'Microsoft.DBforPostgreSQL/flexibleServers@2023-12-01-preview'
   }
 }
 
-// Allow Azure services to connect (Container Apps)
 resource dbFirewall 'Microsoft.DBforPostgreSQL/flexibleServers/firewallRules@2023-12-01-preview' = {
   parent: dbServer
   name: 'AllowAzureServices'
@@ -95,10 +97,10 @@ resource dbDatabase 'Microsoft.DBforPostgreSQL/flexibleServers/databases@2023-12
   name: dbName
 }
 
-// ─── Container App: API ───
+// ─── Container Apps (only when deployApps=true, after images are pushed) ───
 var dbConnectionString = 'postgres://${dbUser}:${dbPassword}@${dbServer.properties.fullyQualifiedDomainName}:5432/${dbName}?sslmode=require'
 
-resource apiApp 'Microsoft.App/containerApps@2024-03-01' = {
+resource apiApp 'Microsoft.App/containerApps@2024-03-01' = if (deployApps) {
   name: '${prefix}-api'
   location: location
   properties: {
@@ -169,8 +171,7 @@ resource apiApp 'Microsoft.App/containerApps@2024-03-01' = {
   dependsOn: [dbDatabase, dbFirewall]
 }
 
-// ─── Container App: Web ───
-resource webApp 'Microsoft.App/containerApps@2024-03-01' = {
+resource webApp 'Microsoft.App/containerApps@2024-03-01' = if (deployApps) {
   name: '${prefix}-web'
   location: location
   properties: {
@@ -200,6 +201,8 @@ resource webApp 'Microsoft.App/containerApps@2024-03-01' = {
           image: '${acr.properties.loginServer}/${prefix}/web:${imageTag}'
           resources: { cpu: json('0.25'), memory: '0.5Gi' }
           env: [
+            // Resolves at deploy time — both web and api are gated by same deployApps condition
+            #disable-next-line BCP318
             { name: 'API_URL', value: 'https://${apiApp.properties.configuration.ingress.fqdn}' }
           ]
         }
@@ -218,8 +221,7 @@ resource webApp 'Microsoft.App/containerApps@2024-03-01' = {
   }
 }
 
-// ─── Container App: Landing ───
-resource landingApp 'Microsoft.App/containerApps@2024-03-01' = {
+resource landingApp 'Microsoft.App/containerApps@2024-03-01' = if (deployApps) {
   name: '${prefix}-landing'
   location: location
   properties: {
@@ -267,7 +269,5 @@ resource landingApp 'Microsoft.App/containerApps@2024-03-01' = {
 // ─── Outputs ───
 output acrLoginServer string = acr.properties.loginServer
 output acrName string = acr.name
-output apiUrl string = 'https://${apiApp.properties.configuration.ingress.fqdn}'
-output webUrl string = 'https://${webApp.properties.configuration.ingress.fqdn}'
-output landingUrl string = 'https://${landingApp.properties.configuration.ingress.fqdn}'
 output dbHost string = dbServer.properties.fullyQualifiedDomainName
+output environmentName string = containerEnv.name
