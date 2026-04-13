@@ -98,7 +98,7 @@ resource dbDatabase 'Microsoft.DBforPostgreSQL/flexibleServers/databases@2023-12
 }
 
 // ─── Container Apps (only when deployApps=true, after images are pushed) ───
-var dbConnectionString = 'postgres://${dbUser}:${dbPassword}@${dbServer.properties.fullyQualifiedDomainName}:5432/${dbName}?sslmode=require'
+var dbConnectionString = 'postgres://${dbUser}:${uriComponent(dbPassword)}@${dbServer.properties.fullyQualifiedDomainName}:5432/${dbName}?sslmode=require'
 
 resource apiApp 'Microsoft.App/containerApps@2024-03-01' = if (deployApps) {
   name: '${prefix}-api'
@@ -157,14 +157,8 @@ resource apiApp 'Microsoft.App/containerApps@2024-03-01' = if (deployApps) {
         }
       ]
       scale: {
-        minReplicas: 0
+        minReplicas: 1
         maxReplicas: 3
-        rules: [
-          {
-            name: 'http-scaling'
-            http: { metadata: { concurrentRequests: '50' } }
-          }
-        ]
       }
     }
   }
