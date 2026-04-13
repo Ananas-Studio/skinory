@@ -1,27 +1,39 @@
-// ─── Social Link Analysis Route ──────────────────────────────────────────────
+// ─── Social Link Analysis Routes ─────────────────────────────────────────────
 
 import { Router } from "express"
 import { z } from "zod"
 import { requireAuth } from "../middlewares/auth.middleware.js"
 import { parseSocialLink } from "../services/social/social-link-parser.js"
 import { readSocialContent } from "../services/social/social-content-reader.js"
-import { detectProducts } from "../services/social/social-product-detector.js"
-import { matchProducts } from "../services/social/social-product-matcher.js"
+import { detectProducts as llmDetect } from "../services/social/social-product-detector.js"
+import { enrichProducts } from "../services/social/social-product-enricher.js"
 
 const socialRouter = Router()
 
-// ─── Validation ──────────────────────────────────────────────────────────────
+// ─── Validation schemas ──────────────────────────────────────────────────────
 
-const analyzeBodySchema = z.object({
+const scrapeBodySchema = z.object({
   url: z.string().trim().min(1).url(),
 })
 
-// ─── POST /social/analyze ────────────────────────────────────────────────────
+const detectBodySchema = z.object({
+  text: z.string().trim().min(1),
+})
 
-socialRouter.post("/analyze", requireAuth, async (req, res) => {
+const enrichBodySchema = z.object({
+  products: z.array(z.object({
+    brand: z.string().nullable(),
+    name: z.string().nullable(),
+    confidence: z.number().min(0).max(1),
+  })).min(1),
+})
+
+// ─── POST /social/scrape ─────────────────────────────────────────────────────
+// Step 1: Parse URL + read social content (oEmbed / OG tags)
+
+socialRouter.post("/scrape", requireAuth, async (req, res) => {
   try {
-    // 1. Validate input
-    const parseResult = analyzeBodySchema.safeParse(req.body)
+    const parseResult = scrapeBodySchema.safeParse(req.body)
     if (!parseResult.success) {
       res.status(400).json({
         ok: false,
@@ -35,24 +47,9 @@ socialRouter.post("/analyze", requireAuth, async (req, res) => {
     }
 
     const { url } = parseResult.data
-
-    // 2. Parse & normalize the social link
     const parsed = parseSocialLink(url)
-
-    // 3. Read content from the social post
     const content = await readSocialContent(parsed.platform, parsed.normalizedUrl)
 
-    // 4. Detect products via LLM (only if we have text)
-    const detectedProducts = content.text
-      ? await detectProducts(content.text)
-      : []
-
-    // 5. Match detected products against our database
-    const matches = detectedProducts.length > 0
-      ? await matchProducts(detectedProducts)
-      : []
-
-    // 6. Return assembled response
     res.status(200).json({
       ok: true,
       data: {
@@ -63,18 +60,73 @@ socialRouter.post("/analyze", requireAuth, async (req, res) => {
           author: content.author,
           thumbnail: content.thumbnail,
         },
-        detectedProducts,
-        matches,
       },
     })
   } catch (error) {
-    console.error("[social/analyze] Unexpected error:", error)
+    console.error("[social/scrape] Unexpected error:", error)
     res.status(500).json({
       ok: false,
-      error: {
-        code: "SOCIAL_ANALYSIS_FAILED",
-        message: "Failed to analyze the social media link",
-      },
+      error: { code: "SOCIAL_SCRAPE_FAILED", message: "Failed to read the social media post" },
+    })
+  }
+})
+
+// ─── POST /social/detect ─────────────────────────────────────────────────────
+// Step 2: Send text to LLM → extract product mentions
+
+socialRouter.post("/detect", requireAuth, async (req, res) => {
+  try {
+    const parseResult = detectBodySchema.safeParse(req.body)
+    if (!parseResult.success) {
+      res.status(400).json({
+        ok: false,
+        error: {
+          code: "SOCIAL_INVALID_TEXT",
+          message: "Please provide the post text to analyze",
+          details: parseResult.error.flatten(),
+        },
+      })
+      return
+    }
+
+    const detected = await llmDetect(parseResult.data.text)
+
+    res.status(200).json({ ok: true, data: { detectedProducts: detected } })
+  } catch (error) {
+    console.error("[social/detect] Unexpected error:", error)
+    res.status(500).json({
+      ok: false,
+      error: { code: "SOCIAL_DETECT_FAILED", message: "Failed to detect products from text" },
+    })
+  }
+})
+
+// ─── POST /social/enrich ─────────────────────────────────────────────────────
+// Step 3: Match detected products against internal DB + Open Beauty Facts
+
+socialRouter.post("/enrich", requireAuth, async (req, res) => {
+  try {
+    const parseResult = enrichBodySchema.safeParse(req.body)
+    if (!parseResult.success) {
+      res.status(400).json({
+        ok: false,
+        error: {
+          code: "SOCIAL_INVALID_PRODUCTS",
+          message: "Please provide detected products to enrich",
+          details: parseResult.error.flatten(),
+        },
+      })
+      return
+    }
+
+    const enriched = await enrichProducts(parseResult.data.products)
+
+    res.status(200).json({ ok: true, data: { products: enriched } })
+  } catch (error) {
+    console.error("[social/enrich] Unexpected error:", error)
+    res.status(500).json({
+      ok: false,
+      error: { code: "SOCIAL_ENRICH_FAILED", message: "Failed to enrich product data" },
     })
   }
 })

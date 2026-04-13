@@ -63,3 +63,57 @@ export async function fetchObfProduct(barcode: string): Promise<ObfProductResult
     return { found: false, product: undefined }
   }
 }
+
+const OBF_SEARCH_BASE = "https://world.openbeautyfacts.org/cgi/search.pl"
+
+interface ObfSearchRawProduct {
+  product_name?: string
+  brands?: string
+  image_url?: string
+  ingredients_text?: string
+  categories?: string
+  code?: string
+}
+
+/**
+ * Search Open Beauty Facts by product name.
+ * Uses the classic search.pl endpoint with free-text query.
+ * Returns up to `limit` results (default 5).
+ */
+export async function searchObfByName(
+  query: string,
+  limit = 5,
+): Promise<ObfProduct[]> {
+  if (!query.trim()) return []
+
+  try {
+    const url = new URL(OBF_SEARCH_BASE)
+    url.searchParams.set("search_terms", query.trim())
+    url.searchParams.set("search_simple", "1")
+    url.searchParams.set("action", "process")
+    url.searchParams.set("json", "1")
+    url.searchParams.set("page_size", String(limit))
+    url.searchParams.set("fields", "product_name,brands,image_url,ingredients_text,categories,code")
+
+    const res = await fetch(url.toString(), {
+      signal: AbortSignal.timeout(8000),
+    })
+
+    if (!res.ok) return []
+
+    const data = (await res.json()) as { products?: ObfSearchRawProduct[] }
+    if (!Array.isArray(data.products)) return []
+
+    return data.products
+      .filter((p) => p.product_name)
+      .map((p) => ({
+        product_name: p.product_name,
+        brands: p.brands,
+        image_url: p.image_url,
+        ingredients_text: p.ingredients_text,
+        categories: p.categories,
+      }))
+  } catch {
+    return []
+  }
+}

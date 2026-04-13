@@ -12,7 +12,6 @@ import { fetchScanHistory, type ScanHistoryItem } from '../lib/scan-api'
 import { addFavorite, fetchFavoriteIds, removeFavorite } from '../lib/favorites-api'
 import { fetchProducts, type ProductListItem } from '../lib/products-api'
 import { useAuth } from '../contexts/auth-context'
-import { LinkAnalyzerModal } from '../components/link-analyzer-modal'
 
 const CATEGORY_FILTERS = [
   { label: 'All', value: undefined },
@@ -29,7 +28,6 @@ function HomeScreen() {
   const { user } = useAuth()
   const userId = user!.id
   const [searchQuery, setSearchQuery] = useState('')
-  const [linkModalOpen, setLinkModalOpen] = useState(false)
   const [scanHistory, setScanHistory] = useState<ScanHistoryItem[]>([])
   const [historyTotal, setHistoryTotal] = useState(0)
   const [historyLoading, setHistoryLoading] = useState(true)
@@ -185,7 +183,7 @@ function HomeScreen() {
               type='button'
               variant={"default"}
               className='bg-white hover:bg-[#f3f4f6] flex-1'
-              onClick={() => setLinkModalOpen(true)}
+              onClick={() => navigate('/social')}
             >
               <LinkIcon size={16} className='text-black' />
               <span className='text-black text-sm leading-5'>Paste Link</span>
@@ -295,7 +293,6 @@ function HomeScreen() {
         </div>
       </section>
 
-      <LinkAnalyzerModal open={linkModalOpen} onOpenChange={setLinkModalOpen} />
     </div>
   )
 }
