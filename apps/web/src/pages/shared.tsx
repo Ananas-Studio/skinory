@@ -313,13 +313,15 @@ export function IconButton({ children, className, variant = 'default', muted = f
   )
 }
 
-export function PrimaryButton({ children, className = '', onClick }: { children: ReactNode; className?: string; onClick?: () => void }) {
+export function PrimaryButton({ children, className = '', onClick, disabled }: { children: ReactNode; className?: string; onClick?: () => void; disabled?: boolean }) {
   return (
     <Button
       type="button"
       onClick={onClick}
+      disabled={disabled}
       className={cn(
         'inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-[#ee886e] px-3 py-2 text-[14px] leading-[24px] font-medium text-[#fafafa] hover:bg-[#e27f66]',
+        disabled && 'cursor-not-allowed opacity-50',
         className
       )}
     >

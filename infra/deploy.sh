@@ -10,7 +10,7 @@ set -euo pipefail
 
 # ─── Configuration ───
 RESOURCE_GROUP="rg-skinory"
-LOCATION="westeurope"
+LOCATION="swedencentral"
 IMAGE_TAG="${2:-latest}"
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
@@ -104,6 +104,7 @@ build_and_push() {
   for APP in api web landing; do
     log "Building ${APP}..."
     docker build \
+      --platform linux/amd64 \
       -f "$REPO_ROOT/apps/$APP/Dockerfile" \
       -t "$acr_login/skinory/$APP:$IMAGE_TAG" \
       -t "$acr_login/skinory/$APP:latest" \

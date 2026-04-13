@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Button } from '@skinory/ui/components/button'
 import { products } from './data'
 import { HorizontalProductCard, IconButton, ScreenFrame, SearchField } from './shared'
 import { ArrowLeft } from '@skinory/ui/icons'
@@ -7,7 +6,7 @@ import { ArrowLeft } from '@skinory/ui/icons'
 type InventoryTabKey = 'products' | 'wishlist' | 'history'
 
 function InventoryScreen() {
-  const [activeTab, setActiveTab] = useState<InventoryTabKey>('products')
+  const [activeTab, _setActiveTab] = useState<InventoryTabKey>('products')
   const [visibleCount, setVisibleCount] = useState(10)
   const listRef = useRef<HTMLElement | null>(null)
 

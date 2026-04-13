@@ -12,7 +12,6 @@ import {
   TriangleAlert,
 } from '@skinory/ui/icons'
 import { Badge } from '@skinory/ui/components/badge'
-import { Button } from '@skinory/ui/components/button'
 import { IconButton, PrimaryButton, ScreenFrame, SecondaryButton } from './shared'
 import {
   evaluateProduct,
