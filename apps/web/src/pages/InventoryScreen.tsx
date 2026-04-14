@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Button } from '@skinory/ui/components/button'
 import { Loader2 } from '@skinory/ui/icons'
 import { HorizontalProductCard, ScreenFrame, SearchField } from './shared'
@@ -15,6 +16,7 @@ type InventoryTabKey = 'products' | 'wishlist' | 'history'
 interface CardItem {
   product: Product
   imageUrl: string
+  productId?: string
 }
 
 function inventoryToCard(item: InventoryItem): CardItem {
@@ -25,6 +27,7 @@ function inventoryToCard(item: InventoryItem): CardItem {
       tags: [item.category],
     },
     imageUrl: item.imageUrl ?? '/introduction-image.png',
+    productId: item.productId,
   }
 }
 
@@ -36,6 +39,7 @@ function favoriteToCard(item: FavoriteItem): CardItem {
       tags: item.product?.category ? [item.product.category] : [],
     },
     imageUrl: item.product?.imageUrl ?? '/introduction-image.png',
+    productId: item.productId,
   }
 }
 
@@ -47,6 +51,7 @@ function scanToCard(item: ScanHistoryItem): CardItem {
       tags: item.product?.category ? [item.product.category] : [],
     },
     imageUrl: item.product?.imageUrl ?? '/introduction-image.png',
+    productId: item.product?.id,
   }
 }
 
@@ -70,6 +75,7 @@ const emptyStates: Record<InventoryTabKey, { title: string; hint: string }> = {
 function InventoryScreen() {
   const { user } = useAuth()
   const userId = user!.id
+  const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState<InventoryTabKey>('products')
   const [searchQuery, setSearchQuery] = useState('')
   const [loading, setLoading] = useState(true)
@@ -203,6 +209,7 @@ function InventoryScreen() {
               key={`${activeTab}-${index}`}
               item={card.product}
               imageSrc={card.imageUrl}
+              onPress={card.productId ? () => navigate(`/product/${card.productId}`) : undefined}
             />
           ))
         )}

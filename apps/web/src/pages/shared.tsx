@@ -89,11 +89,13 @@ export function HorizontalProductCard({
   imageSrc = '/introduction-image.png',
   className,
   showDecisionPanel = false,
+  onPress,
 }: {
   item: Product
   imageSrc?: string
   className?: string
   showDecisionPanel?: boolean
+  onPress?: () => void
 }) {
   const decisionPanelClassByDecision: Record<Decision, string> = {
     Buy: 'bg-[#e1fee6]',
@@ -102,7 +104,7 @@ export function HorizontalProductCard({
   }
 
   return (
-    <Card className={cn('flex overflow-hidden rounded-xl border border-border p-0 shadow-none flex-row items-end gap-0', className)}>
+    <Card className={cn('flex overflow-hidden rounded-xl border border-border p-0 shadow-none flex-row items-end gap-0', onPress && 'cursor-pointer', className)} onClick={onPress}>
       <img
         src={imageSrc}
         alt={item.name}
@@ -165,15 +167,20 @@ export function VerticalProductCard({
   className,
   isFavorited = false,
   onToggleFavorite,
+  onPress,
 }: {
   item: Product
   imageSrc?: string
   className?: string
   isFavorited?: boolean
   onToggleFavorite?: () => void
+  onPress?: () => void
 }) {
   return (
-    <Card className={cn('shrink-0 overflow-hidden size-fit w-[152px] gap-0 box-content rounded-[16px] border border-border p-0 shadow-none', className)}>
+    <Card
+      className={cn('shrink-0 overflow-hidden size-fit w-[152px] gap-0 box-content rounded-[16px] border border-border p-0 shadow-none', onPress && 'cursor-pointer', className)}
+      onClick={onPress}
+    >
       <div className="relative">
         <img
           src={imageSrc}

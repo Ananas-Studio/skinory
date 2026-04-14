@@ -239,6 +239,7 @@ function HomeScreen() {
                 className="snap-start"
                 isFavorited={scan.product?.id ? favoriteIds.has(scan.product.id) : false}
                 onToggleFavorite={scan.product?.id ? () => handleToggleFavorite(scan.product!.id) : undefined}
+                onPress={scan.product?.id ? () => navigate(`/product/${scan.product!.id}`) : undefined}
               />
             ))
           )}
@@ -282,6 +283,7 @@ function HomeScreen() {
                 className='w-auto min-w-[152px]'
                 isFavorited={favoriteIds.has(p.id)}
                 onToggleFavorite={() => handleToggleFavorite(p.id)}
+                onPress={() => navigate(`/product/${p.id}`)}
               />
             ))}
           </div>

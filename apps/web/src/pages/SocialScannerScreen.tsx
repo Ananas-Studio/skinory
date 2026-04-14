@@ -235,10 +235,10 @@ function SocialScannerScreen() {
     return () => { cancelled = true }
   }, [detectStatus, detectedProducts, userId])
 
-  // ── Navigate to product evaluation ───────────────────────────────────
+  // ── Navigate to product detail ──────────────────────────────────────
   const handleInspect = useCallback(
     (productId: string) => {
-      navigate('/adviser/result', { state: { productId } })
+      navigate(`/product/${productId}`)
     },
     [navigate],
   )

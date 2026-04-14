@@ -23,6 +23,7 @@ import ScreenDirectory from './pages/ScreenDirectory'
 import SearchScreen from './pages/SearchScreen'
 import SignInScreen from './pages/SignInScreen'
 import SocialScannerScreen from './pages/SocialScannerScreen'
+import ProductDetailScreen from './pages/ProductDetailScreen'
 import SplashScreen from './pages/SplashScreen'
 import { BottomNav } from './pages/shared'
 
@@ -58,7 +59,7 @@ function AppRoutes() {
   }, [])
 
   const shouldRenderSplash = showLaunchSplash && location.pathname !== '/pages'
-  const shouldShowBottomNav = !['/introduction', '/signin', '/pages', '/social'].includes(location.pathname) && !location.pathname.startsWith('/profile')
+  const shouldShowBottomNav = !['/introduction', '/signin', '/pages', '/social'].includes(location.pathname) && !location.pathname.startsWith('/profile') && !location.pathname.startsWith('/product')
   const activeNav = getActiveNav(location.pathname)
 
   return (
@@ -86,6 +87,7 @@ function AppRoutes() {
           <Route path="/profile/lifestyle" element={<ProtectedRoute><LifestyleEdit /></ProtectedRoute>} />
           <Route path="/profile/accounts" element={<ProtectedRoute><AccountsEdit /></ProtectedRoute>} />
           <Route path="/social" element={<ProtectedRoute><SocialScannerScreen /></ProtectedRoute>} />
+          <Route path="/product/:id" element={<ProtectedRoute><ProductDetailScreen /></ProtectedRoute>} />
           <Route path="*" element={<ScreenDirectory />} />
         </Routes>
       </div>
