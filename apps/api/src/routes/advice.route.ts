@@ -1,6 +1,7 @@
 import { Response, Router } from "express";
 import { ZodError, z } from "zod";
 import { requireAuth } from "../middlewares/auth.middleware.js";
+import { checkUsage, recordUsageFromReq } from "../middlewares/usage.middleware.js";
 import {
   createSession,
   getSessionMessages,
@@ -84,7 +85,7 @@ adviceRouter.get("/sessions/:sessionId/messages", requireAuth, async (req, res) 
   }
 });
 
-adviceRouter.post("/sessions/:sessionId/messages", requireAuth, async (req, res) => {
+adviceRouter.post("/sessions/:sessionId/messages", requireAuth, checkUsage("ai_advice"), async (req, res) => {
   try {
     const sessionId = req.params.sessionId as string;
     const userId = req.authUserId as string;
@@ -104,7 +105,8 @@ adviceRouter.post("/sessions/:sessionId/messages", requireAuth, async (req, res)
         (chunk) => {
           res.write(`data: ${JSON.stringify({ type: "chunk", content: chunk })}\n\n`);
         },
-        (fullContent) => {
+        async (fullContent) => {
+          await recordUsageFromReq(req);
           res.write(`data: ${JSON.stringify({ type: "done", content: fullContent })}\n\n`);
           res.end();
         },

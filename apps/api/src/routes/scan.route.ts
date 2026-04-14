@@ -3,6 +3,7 @@ import { z, ZodError } from 'zod'
 import multer from 'multer'
 import { parseIngredientString } from '@skinory/core'
 import { requireAuth } from '../middlewares/auth.middleware.js'
+import { checkUsage, recordUsageFromReq } from '../middlewares/usage.middleware.js'
 import {
   evaluateProduct,
   EvaluationServiceError,
@@ -40,13 +41,14 @@ const evaluateSchema = z.object({
   productId: z.string().uuid(),
 })
 
-scanRouter.post('/evaluate', async (req: Request, res: Response) => {
+scanRouter.post('/evaluate', checkUsage('ai_evaluation'), async (req: Request, res: Response) => {
   try {
     const body = evaluateSchema.parse(req.body)
     const userId = (req as any).authUserId as string
 
     const result = await evaluateProduct(userId, body.productId)
 
+    await recordUsageFromReq(req)
     res.json({ ok: true, data: result })
   } catch (err: any) {
     if (err instanceof ZodError) {
@@ -228,13 +230,14 @@ const resolveSchema = z.object({
   barcodeFormat: z.string().optional(),
 })
 
-scanRouter.post('/resolve', async (req: Request, res: Response) => {
+scanRouter.post('/resolve', checkUsage('scan_resolve'), async (req: Request, res: Response) => {
   try {
     const body = resolveSchema.parse(req.body)
     const userId = req.authUserId as string
 
     const result = await resolveProduct(body.barcode, userId)
     
+    await recordUsageFromReq(req)
     res.json({ ok: true, data: result })
   } catch (err: any) {
     if (err instanceof ZodError) {

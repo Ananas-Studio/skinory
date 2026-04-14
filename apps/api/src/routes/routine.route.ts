@@ -2,6 +2,7 @@ import { Response, Router } from "express"
 import { ZodError, z } from "zod"
 import { ROUTINE_STEP_CATEGORIES } from "@skinory/core"
 import { requireAuth } from "../middlewares/auth.middleware.js"
+import { checkUsage, recordUsageFromReq } from "../middlewares/usage.middleware.js"
 import {
   addStep,
   generateRoutine,
@@ -61,11 +62,12 @@ routineRouter.get("/", requireAuth, async (req, res) => {
 
 // ─── POST /routine/generate ──────────────────────────────────────────────────
 
-routineRouter.post("/generate", requireAuth, async (req, res) => {
+routineRouter.post("/generate", requireAuth, checkUsage("routine_generate"), async (req, res) => {
   try {
     const userId = req.authUserId as string
     const result = await generateRoutine(userId)
 
+    await recordUsageFromReq(req)
     res.status(201).json({ ok: true, data: result })
   } catch (error: unknown) {
     respondRoutineError(res, error)

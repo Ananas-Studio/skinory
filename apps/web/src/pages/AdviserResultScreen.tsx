@@ -9,6 +9,7 @@ import {
   Loader2,
   MessagesSquare,
   Moon,
+  Sparkles,
   SunMedium,
   TriangleAlert,
 } from '@skinory/ui/icons'
@@ -21,6 +22,7 @@ import {
 } from '../lib/scan-api'
 import { addToInventory } from '../lib/inventory-api'
 import { useAuth } from '../contexts/auth-context'
+import { fetchUsage, type CategoryUsage } from '../lib/usage-api'
 
 interface LocationState {
   productId?: string
@@ -163,6 +165,7 @@ function AdviserResultScreen() {
   const [error, setError] = useState<string | null>(null)
   const [addingToInventory, setAddingToInventory] = useState(false)
   const [inventoryAdded, setInventoryAdded] = useState(false)
+  const [aiUsage, setAiUsage] = useState<CategoryUsage | null>(null)
 
   const productId = state?.productId ?? result?.productId
 
@@ -196,6 +199,13 @@ function AdviserResultScreen() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Fetch remaining AI evaluation usage
+  useEffect(() => {
+    fetchUsage(userId)
+      .then((data) => setAiUsage(data.limits.ai_evaluation))
+      .catch(() => {})
+  }, [userId, result])
 
   async function handleAddToInventory() {
     if (!productId || addingToInventory || inventoryAdded) return
@@ -241,6 +251,18 @@ function AdviserResultScreen() {
               <Heart size={16} />
             </IconButton>
           </div>
+
+          {/* AI evaluation usage badge */}
+          {aiUsage && (
+            <div className="flex items-center gap-1.5 rounded-lg bg-[#FFF7F5] px-2.5 py-1.5 self-start">
+              <Sparkles size={12} className={aiUsage.remaining === 0 ? 'text-red-400' : 'text-[#EE886E]'} />
+              <span className={`text-xs font-medium ${aiUsage.remaining === 0 ? 'text-red-500' : 'text-[#71717a]'}`}>
+                {aiUsage.remaining > 0
+                  ? `${aiUsage.remaining} evaluation${aiUsage.remaining > 1 ? 's' : ''} remaining`
+                  : 'No evaluation credits left'}
+              </span>
+            </div>
+          )}
 
           {/* Product card */}
           <div className="flex items-start overflow-hidden">

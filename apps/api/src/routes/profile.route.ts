@@ -2,6 +2,7 @@ import { Router } from "express"
 import { z } from "zod"
 import { requireAuth } from "../middlewares/auth.middleware.js"
 import { getModels } from "../models/index.js"
+import { getUsageSummary } from "../services/usage.service.js"
 import {
   SKIN_TYPES,
   SENSITIVITY_LEVELS,
@@ -447,6 +448,19 @@ profileRouter.get("/preferences/options", async (_req, res) => {
   } catch (error) {
     console.error("GET /profile/preferences/options error:", error)
     res.status(500).json({ ok: false, error: { code: "INTERNAL_ERROR", message: "Failed to load preferences" } })
+  }
+})
+
+// ─── GET /profile/usage ──────────────────────────────────────────────────────
+
+profileRouter.get("/usage", requireAuth, async (req, res) => {
+  try {
+    const userId = req.authUserId as string
+    const summary = await getUsageSummary(userId)
+    res.status(200).json({ ok: true, data: summary })
+  } catch (error) {
+    console.error("GET /profile/usage error:", error)
+    res.status(500).json({ ok: false, error: { code: "INTERNAL_ERROR", message: "Failed to load usage data" } })
   }
 })
 

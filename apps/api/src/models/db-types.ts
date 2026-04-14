@@ -22,5 +22,6 @@ export const ADVICE_SESSION_STATUSES = ["open", "completed", "archived"] as cons
 export const ADVICE_SOURCE_TRIGGERS = ["scan", "url", "manual_question"] as const;
 export const ADVICE_MESSAGE_ROLES = ["user", "assistant", "system"] as const;
 export const RECOMMENDATION_TYPES = ["buy", "dont_buy", "caution"] as const;
+export const USAGE_CATEGORIES_DB = ["ai_evaluation", "ai_advice", "scan_resolve", "routine_generate"] as const;
 
 export type EnumValue<T extends readonly string[]> = T[number];

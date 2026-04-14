@@ -26,6 +26,7 @@ import { UserAllergen } from "./user-allergen.model.js";
 import { UserProductPreference } from "./user-product-preference.model.js";
 import { UserSkinConcern } from "./user-skin-concern.model.js";
 import { User } from "./user.model.js";
+import { UsageLog } from "./usage-log.model.js";
 
 export interface DbModels {
   User: typeof User;
@@ -55,6 +56,7 @@ export interface DbModels {
   Recommendation: typeof Recommendation;
   FeedbackEntry: typeof FeedbackEntry;
   AnalyticsEvent: typeof AnalyticsEvent;
+  UsageLog: typeof UsageLog;
 }
 
 let cachedModels: DbModels | null = null;
@@ -92,6 +94,7 @@ export function initModels(sequelize: Sequelize): DbModels {
     Recommendation: Recommendation.initModel(sequelize),
     FeedbackEntry: FeedbackEntry.initModel(sequelize),
     AnalyticsEvent: AnalyticsEvent.initModel(sequelize),
+    UsageLog: UsageLog.initModel(sequelize),
   };
 
   Object.values(models).forEach((model) => {

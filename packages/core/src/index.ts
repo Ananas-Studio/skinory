@@ -92,3 +92,23 @@ export {
   GENDER_LABELS,
   type Gender,
 } from "./skin-profile.js";
+
+export {
+  // Usage Categories
+  USAGE_CATEGORIES,
+  USAGE_CATEGORY_LABELS,
+  type UsageCategory,
+
+  // Tier Definitions
+  SUBSCRIPTION_TIERS,
+  DEFAULT_TIER_ID,
+  type TierLimits,
+  type SubscriptionTier,
+
+  // Helpers
+  getTier,
+  getLimitForCategory,
+  getRemaining,
+  isLimitExceeded,
+  isAiCategory,
+} from "./subscription.js";

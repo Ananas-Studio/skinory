@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
-import { ArrowLeft, Loader2, Search, SendHorizontal } from '@skinory/ui/icons'
+import { ArrowLeft, Loader2, Search, SendHorizontal, Sparkles } from '@skinory/ui/icons'
 import { Button } from '@skinory/ui/components/button'
 import { Input } from '@skinory/ui/components/input'
 import { IconButton, ScreenFrame } from './shared'
 import { createSession, sendMessageStream, type AdviceMessage } from '../lib/advice-api'
 import type { ProductInfo } from '../lib/scan-api'
 import { useAuth } from '../contexts/auth-context'
+import { fetchUsage, type CategoryUsage } from '../lib/usage-api'
 
 const AUTO_TRIGGER_MESSAGE = 'I just scanned this product. Can you tell me about it — is it good for my skin?'
 
@@ -37,6 +38,14 @@ function AdviserChatOpeningScreen() {
   const autoTriggered = useRef(false)
 
   const firstName = user!.fullName?.split(' ')[0] || ''
+  const [aiUsage, setAiUsage] = useState<CategoryUsage | null>(null)
+
+  // Fetch remaining AI advice usage
+  useEffect(() => {
+    fetchUsage(userId)
+      .then((data) => setAiUsage(data.limits.ai_advice))
+      .catch(() => {})
+  }, [userId])
 
   // Auto-trigger chat when arriving with a productId
   useEffect(() => {
@@ -174,6 +183,16 @@ function AdviserChatOpeningScreen() {
           <p className="w-[269px] text-[14px] leading-[20px] font-normal text-[#3f3f46]">
             Let&apos;s enhance your skincare routine for a glow with some great tips and products!
           </p>
+          {aiUsage && (
+            <div className="mt-1 flex items-center gap-1.5">
+              <Sparkles size={12} className={aiUsage.remaining === 0 ? 'text-red-400' : 'text-[#EE886E]'} />
+              <span className={`text-xs font-medium ${aiUsage.remaining === 0 ? 'text-red-500' : 'text-[#71717a]'}`}>
+                {aiUsage.remaining > 0
+                  ? `${aiUsage.remaining} AI advice${aiUsage.remaining > 1 ? 's' : ''} remaining`
+                  : 'No AI advice credits left'}
+              </span>
+            </div>
+          )}
         </div>
       </section>
 

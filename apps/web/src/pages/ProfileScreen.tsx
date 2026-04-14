@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
-import { ArrowLeft, ChevronRight, Loader2, LogOut, User as UserIcon, Droplet, AlertTriangle, Heart, Leaf, Link2 } from '@skinory/ui/icons'
+import { ArrowLeft, ChevronRight, Loader2, LogOut, User as UserIcon, Droplet, AlertTriangle, Heart, Leaf, Link2, Sparkles } from '@skinory/ui/icons'
 import { Button } from '@skinory/ui/components/button'
+import { USAGE_CATEGORY_LABELS, isAiCategory, type UsageCategory } from '@skinory/core'
 import { useAuth } from '../contexts/auth-context'
 import { fetchProfile, type ProfileData } from '../lib/auth-api'
+import { fetchUsage, type UsageSummary } from '../lib/usage-api'
 import { ScreenFrame } from './shared'
 
 const SECTIONS = [
@@ -87,13 +89,22 @@ function ProfileScreen() {
   const userId = user!.id
 
   const [profile, setProfile] = useState<ProfileData | null>(null)
+  const [usage, setUsage] = useState<UsageSummary | null>(null)
   const [loading, setLoading] = useState(true)
   const [signOutLoading, setSignOutLoading] = useState(false)
 
   useEffect(() => {
     let cancelled = false
-    fetchProfile(userId)
-      .then((data) => { if (!cancelled) setProfile(data) })
+    Promise.all([
+      fetchProfile(userId),
+      fetchUsage(userId).catch(() => null),
+    ])
+      .then(([profileData, usageData]) => {
+        if (!cancelled) {
+          setProfile(profileData)
+          setUsage(usageData)
+        }
+      })
       .catch((err) => { console.error(err); toast.error(err instanceof Error ? err.message : 'Failed to load profile') })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
@@ -167,6 +178,49 @@ function ProfileScreen() {
             )
           })}
         </section>
+
+        {/* Subscription & Usage */}
+        {usage && (
+          <section className="rounded-2xl border border-[#f4f4f5] bg-gradient-to-br from-[#FFF7F5] to-white p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="grid h-8 w-8 place-items-center rounded-lg bg-[#EE886E]">
+                <Sparkles size={16} className="text-white" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-[#18181b]">Subscription</p>
+              </div>
+              <span className="rounded-full bg-[#EE886E]/10 px-2.5 py-0.5 text-xs font-semibold text-[#EE886E]">
+                {usage.tierName}
+              </span>
+            </div>
+            <div className="flex flex-col gap-2.5">
+              {(Object.entries(usage.limits) as [UsageCategory, typeof usage.limits[UsageCategory]][]).map(([cat, info]) => {
+                const pct = info.limit > 0 ? Math.min(100, (info.used / info.limit) * 100) : 100
+                const isAi = isAiCategory(cat)
+                const isExhausted = info.remaining === 0
+                return (
+                  <div key={cat}>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs text-[#52525b]">
+                        {isAi && '✨ '}{USAGE_CATEGORY_LABELS[cat]}
+                      </span>
+                      <span className={`text-xs font-medium ${isExhausted ? 'text-red-500' : 'text-[#71717a]'}`}>
+                        {info.used}/{info.limit}
+                      </span>
+                    </div>
+                    <div className="h-1.5 w-full rounded-full bg-[#f4f4f5] overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all ${isExhausted ? 'bg-red-400' : isAi ? 'bg-[#EE886E]' : 'bg-[#a1a1aa]'}`}
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+            <p className="mt-3 text-[10px] text-[#a1a1aa] text-center">Resets monthly</p>
+          </section>
+        )}
 
         {/* Sign Out */}
         <section className="pt-2 border-t border-[#f4f4f5]">
