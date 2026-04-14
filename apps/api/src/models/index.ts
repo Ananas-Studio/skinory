@@ -1,6 +1,7 @@
 import type { Sequelize } from "sequelize";
 import { AdviceMessage } from "./advice-message.model.js";
 import { AdviceSession } from "./advice-session.model.js";
+import { Allergen } from "./allergen.model.js";
 import { AnalyticsEvent } from "./analytics-event.model.js";
 import { AuthIdentity } from "./auth-identity.model.js";
 import { Brand } from "./brand.model.js";
@@ -12,6 +13,7 @@ import { InventoryItem } from "./inventory-item.model.js";
 import { Inventory } from "./inventory.model.js";
 import { ProductBarcode } from "./product-barcode.model.js";
 import { ProductIngredient } from "./product-ingredient.model.js";
+import { ProductPreference } from "./product-preference.model.js";
 import { ProductSource } from "./product-source.model.js";
 import { Product } from "./product.model.js";
 import { Recommendation } from "./recommendation.model.js";
@@ -20,6 +22,8 @@ import { Routine } from "./routine.model.js";
 import { Scan } from "./scan.model.js";
 import { SkinConcern } from "./skin-concern.model.js";
 import { SkinProfile } from "./skin-profile.model.js";
+import { UserAllergen } from "./user-allergen.model.js";
+import { UserProductPreference } from "./user-product-preference.model.js";
 import { UserSkinConcern } from "./user-skin-concern.model.js";
 import { User } from "./user.model.js";
 
@@ -36,6 +40,10 @@ export interface DbModels {
   SkinProfile: typeof SkinProfile;
   SkinConcern: typeof SkinConcern;
   UserSkinConcern: typeof UserSkinConcern;
+  Allergen: typeof Allergen;
+  UserAllergen: typeof UserAllergen;
+  ProductPreference: typeof ProductPreference;
+  UserProductPreference: typeof UserProductPreference;
   Inventory: typeof Inventory;
   InventoryItem: typeof InventoryItem;
   Routine: typeof Routine;
@@ -69,6 +77,10 @@ export function initModels(sequelize: Sequelize): DbModels {
     SkinProfile: SkinProfile.initModel(sequelize),
     SkinConcern: SkinConcern.initModel(sequelize),
     UserSkinConcern: UserSkinConcern.initModel(sequelize),
+    Allergen: Allergen.initModel(sequelize),
+    UserAllergen: UserAllergen.initModel(sequelize),
+    ProductPreference: ProductPreference.initModel(sequelize),
+    UserProductPreference: UserProductPreference.initModel(sequelize),
     Inventory: Inventory.initModel(sequelize),
     InventoryItem: InventoryItem.initModel(sequelize),
     Routine: Routine.initModel(sequelize),

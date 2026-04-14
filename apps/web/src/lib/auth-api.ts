@@ -7,6 +7,9 @@ export interface AuthUser {
   email: string | null
   fullName: string | null
   avatarUrl: string | null
+  phone: string | null
+  birthday: string | null
+  gender: string | null
   authProvider: 'google' | 'apple' | null
   isGuest: boolean
   createdAt: string
@@ -122,16 +125,45 @@ export async function removeConnection(userId: string, provider: 'google' | 'app
 
 // ─── Profile ────────────────────────────────────────────────────────────────
 
+export interface SkinProfileData {
+  skinType: string | null
+  sensitivityLevel: string | null
+  fitzpatrickType: string | null
+  acneProne: boolean | null
+  notes: string | null
+  climateType: string | null
+  sunExposure: number | null
+  pollutionExposure: number | null
+  stressLevel: number | null
+  sleepQuality: number | null
+  hydrationLevel: number | null
+  exerciseFrequency: string | null
+  dietType: string | null
+  smokingStatus: string | null
+  screenTime: number | null
+}
+
+export interface AllergenOption {
+  id: string
+  slug: string
+  name: string
+  category: string
+}
+
+export interface PreferenceOption {
+  id: string
+  slug: string
+  name: string
+  category: string
+}
+
 export interface ProfileData {
   user: AuthUser
   connections: AuthConnection[]
-  skinProfile: {
-    skinType: string | null
-    sensitivityLevel: string | null
-    acneProne: boolean | null
-    notes: string | null
-  } | null
+  skinProfile: SkinProfileData | null
   skinConcerns: { id: string; slug: string; name: string; severity: number | null }[]
+  allergens: AllergenOption[]
+  productPreferences: PreferenceOption[]
 }
 
 export async function fetchProfile(userId: string): Promise<ProfileData> {
@@ -143,7 +175,7 @@ export async function fetchProfile(userId: string): Promise<ProfileData> {
 
 export async function updateProfile(
   userId: string,
-  data: { fullName?: string; avatarUrl?: string },
+  data: { fullName?: string; avatarUrl?: string; phone?: string | null; birthday?: string | null; gender?: string | null },
 ): Promise<AuthUser> {
   const res = await request<{ user: AuthUser }>(`${API_BASE}/profile`, {
     method: 'PATCH',
@@ -155,7 +187,7 @@ export async function updateProfile(
 
 export async function updateSkinProfile(
   userId: string,
-  data: { skinType?: string; sensitivityLevel?: string; acneProne?: boolean; notes?: string },
+  data: Partial<SkinProfileData>,
 ): Promise<void> {
   await request<unknown>(`${API_BASE}/profile/skin`, {
     method: 'PATCH',
@@ -186,5 +218,39 @@ export async function fetchSkinConcerns(): Promise<SkinConcernOption[]> {
   return request<SkinConcernOption[]>(`${API_BASE}/profile/concerns/options`, {
     method: 'GET',
     headers: headers(),
+  })
+}
+
+// ─── Allergens ──────────────────────────────────────────────────────────────
+
+export async function fetchAllergenOptions(): Promise<AllergenOption[]> {
+  return request<AllergenOption[]>(`${API_BASE}/profile/allergens/options`, {
+    method: 'GET',
+    headers: headers(),
+  })
+}
+
+export async function updateAllergens(userId: string, allergenIds: string[]): Promise<void> {
+  await request<unknown>(`${API_BASE}/profile/allergens`, {
+    method: 'PUT',
+    headers: headers(userId),
+    body: JSON.stringify({ allergenIds }),
+  })
+}
+
+// ─── Product Preferences ────────────────────────────────────────────────────
+
+export async function fetchPreferenceOptions(): Promise<PreferenceOption[]> {
+  return request<PreferenceOption[]>(`${API_BASE}/profile/preferences/options`, {
+    method: 'GET',
+    headers: headers(),
+  })
+}
+
+export async function updatePreferences(userId: string, preferenceIds: string[]): Promise<void> {
+  await request<unknown>(`${API_BASE}/profile/preferences`, {
+    method: 'PUT',
+    headers: headers(userId),
+    body: JSON.stringify({ preferenceIds }),
   })
 }

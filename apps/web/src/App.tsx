@@ -12,6 +12,12 @@ import IntroductionScreen from './pages/IntroductionScreen'
 import InventoryScreen from './pages/InventoryScreen'
 import IngredientCaptureScreen from './pages/IngredientCaptureScreen'
 import ProfileScreen from './pages/ProfileScreen'
+import AllergiesEdit from './pages/profile/AllergiesEdit'
+import AccountsEdit from './pages/profile/AccountsEdit'
+import LifestyleEdit from './pages/profile/LifestyleEdit'
+import PersonalInfoEdit from './pages/profile/PersonalInfoEdit'
+import PreferencesEdit from './pages/profile/PreferencesEdit'
+import SkinProfileEdit from './pages/profile/SkinProfileEdit'
 import ScanScreen from './pages/ScanScreen'
 import ScreenDirectory from './pages/ScreenDirectory'
 import SearchScreen from './pages/SearchScreen'
@@ -52,7 +58,7 @@ function AppRoutes() {
   }, [])
 
   const shouldRenderSplash = showLaunchSplash && location.pathname !== '/pages'
-  const shouldShowBottomNav = !['/introduction', '/signin', '/pages', '/profile', '/social'].includes(location.pathname)
+  const shouldShowBottomNav = !['/introduction', '/signin', '/pages', '/social'].includes(location.pathname) && !location.pathname.startsWith('/profile')
   const activeNav = getActiveNav(location.pathname)
 
   return (
@@ -73,6 +79,12 @@ function AppRoutes() {
           <Route path="/adviser/chat" element={<ProtectedRoute><AdviserChatOpeningScreen /></ProtectedRoute>} />
           <Route path="/adviser/chatting" element={<ProtectedRoute><AdviserChattingScreen /></ProtectedRoute>} />
           <Route path="/profile" element={<ProtectedRoute><ProfileScreen /></ProtectedRoute>} />
+          <Route path="/profile/personal" element={<ProtectedRoute><PersonalInfoEdit /></ProtectedRoute>} />
+          <Route path="/profile/skin" element={<ProtectedRoute><SkinProfileEdit /></ProtectedRoute>} />
+          <Route path="/profile/allergies" element={<ProtectedRoute><AllergiesEdit /></ProtectedRoute>} />
+          <Route path="/profile/preferences" element={<ProtectedRoute><PreferencesEdit /></ProtectedRoute>} />
+          <Route path="/profile/lifestyle" element={<ProtectedRoute><LifestyleEdit /></ProtectedRoute>} />
+          <Route path="/profile/accounts" element={<ProtectedRoute><AccountsEdit /></ProtectedRoute>} />
           <Route path="/social" element={<ProtectedRoute><SocialScannerScreen /></ProtectedRoute>} />
           <Route path="*" element={<ScreenDirectory />} />
         </Routes>

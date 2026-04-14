@@ -7,7 +7,7 @@ import {
   NonAttribute,
   Sequelize,
 } from "sequelize";
-import { AUTH_PROVIDERS } from "./db-types.js";
+import { AUTH_PROVIDERS, GENDERS } from "./db-types.js";
 import type { DbModels } from "./index.ts";
 
 export class User extends Model<InferAttributes<User>, InferCreationAttributes<User>> {
@@ -15,6 +15,9 @@ export class User extends Model<InferAttributes<User>, InferCreationAttributes<U
   declare email: CreationOptional<string | null>;
   declare fullName: CreationOptional<string | null>;
   declare avatarUrl: CreationOptional<string | null>;
+  declare phone: CreationOptional<string | null>;
+  declare birthday: CreationOptional<Date | null>;
+  declare gender: CreationOptional<(typeof GENDERS)[number] | null>;
   declare authProvider: CreationOptional<(typeof AUTH_PROVIDERS)[number] | null>;
   declare isGuest: CreationOptional<boolean>;
   declare createdAt: CreationOptional<Date>;
@@ -50,6 +53,18 @@ export class User extends Model<InferAttributes<User>, InferCreationAttributes<U
           type: DataTypes.TEXT,
           allowNull: true,
           field: "avatar_url",
+        },
+        phone: {
+          type: DataTypes.STRING(30),
+          allowNull: true,
+        },
+        birthday: {
+          type: DataTypes.DATEONLY,
+          allowNull: true,
+        },
+        gender: {
+          type: DataTypes.ENUM(...GENDERS),
+          allowNull: true,
         },
         authProvider: {
           type: DataTypes.ENUM(...AUTH_PROVIDERS),
@@ -116,5 +131,19 @@ export class User extends Model<InferAttributes<User>, InferCreationAttributes<U
     User.hasMany(models.AdviceSession, { foreignKey: "userId", as: "adviceSessions" });
     User.hasMany(models.FeedbackEntry, { foreignKey: "userId", as: "feedbackEntries" });
     User.hasMany(models.AnalyticsEvent, { foreignKey: "userId", as: "analyticsEvents" });
+    User.hasMany(models.UserAllergen, { foreignKey: "userId", as: "userAllergens" });
+    User.belongsToMany(models.Allergen, {
+      through: models.UserAllergen,
+      foreignKey: "userId",
+      otherKey: "allergenId",
+      as: "allergens",
+    });
+    User.hasMany(models.UserProductPreference, { foreignKey: "userId", as: "userProductPreferences" });
+    User.belongsToMany(models.ProductPreference, {
+      through: models.UserProductPreference,
+      foreignKey: "userId",
+      otherKey: "preferenceId",
+      as: "productPreferences",
+    });
   }
 }

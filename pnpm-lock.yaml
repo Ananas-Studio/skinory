@@ -132,6 +132,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@skinory/core':
+        specifier: workspace:*
+        version: link:../../packages/core
       '@skinory/ui':
         specifier: workspace:*
         version: link:../../packages/ui

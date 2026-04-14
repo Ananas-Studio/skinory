@@ -7,7 +7,7 @@ import {
   Model,
   Sequelize,
 } from "sequelize";
-import { SENSITIVITY_LEVELS, SKIN_TYPES } from "./db-types.js";
+import { SENSITIVITY_LEVELS, SKIN_TYPES, FITZPATRICK_TYPES, CLIMATE_TYPES, EXERCISE_FREQUENCIES, DIET_TYPES, SMOKING_STATUSES } from "./db-types.js";
 import type { DbModels } from "./index.ts";
 
 export class SkinProfile extends Model<InferAttributes<SkinProfile>, InferCreationAttributes<SkinProfile>> {
@@ -15,8 +15,20 @@ export class SkinProfile extends Model<InferAttributes<SkinProfile>, InferCreati
   declare userId: ForeignKey<string>;
   declare skinType: CreationOptional<(typeof SKIN_TYPES)[number] | null>;
   declare sensitivityLevel: CreationOptional<(typeof SENSITIVITY_LEVELS)[number] | null>;
+  declare fitzpatrickType: CreationOptional<(typeof FITZPATRICK_TYPES)[number] | null>;
   declare acneProne: CreationOptional<boolean | null>;
   declare notes: CreationOptional<string | null>;
+  // Lifestyle
+  declare climateType: CreationOptional<(typeof CLIMATE_TYPES)[number] | null>;
+  declare sunExposure: CreationOptional<number | null>;
+  declare pollutionExposure: CreationOptional<number | null>;
+  declare stressLevel: CreationOptional<number | null>;
+  declare sleepQuality: CreationOptional<number | null>;
+  declare hydrationLevel: CreationOptional<number | null>;
+  declare exerciseFrequency: CreationOptional<(typeof EXERCISE_FREQUENCIES)[number] | null>;
+  declare dietType: CreationOptional<(typeof DIET_TYPES)[number] | null>;
+  declare smokingStatus: CreationOptional<(typeof SMOKING_STATUSES)[number] | null>;
+  declare screenTime: CreationOptional<number | null>;
   declare createdAt: CreationOptional<Date>;
   declare updatedAt: CreationOptional<Date>;
 
@@ -51,6 +63,67 @@ export class SkinProfile extends Model<InferAttributes<SkinProfile>, InferCreati
         notes: {
           type: DataTypes.TEXT,
           allowNull: true,
+        },
+        fitzpatrickType: {
+          type: DataTypes.ENUM(...FITZPATRICK_TYPES),
+          allowNull: true,
+          field: "fitzpatrick_type",
+        },
+        climateType: {
+          type: DataTypes.ENUM(...CLIMATE_TYPES),
+          allowNull: true,
+          field: "climate_type",
+        },
+        sunExposure: {
+          type: DataTypes.SMALLINT,
+          allowNull: true,
+          field: "sun_exposure",
+          validate: { min: 1, max: 5 },
+        },
+        pollutionExposure: {
+          type: DataTypes.SMALLINT,
+          allowNull: true,
+          field: "pollution_exposure",
+          validate: { min: 1, max: 5 },
+        },
+        stressLevel: {
+          type: DataTypes.SMALLINT,
+          allowNull: true,
+          field: "stress_level",
+          validate: { min: 1, max: 5 },
+        },
+        sleepQuality: {
+          type: DataTypes.SMALLINT,
+          allowNull: true,
+          field: "sleep_quality",
+          validate: { min: 1, max: 5 },
+        },
+        hydrationLevel: {
+          type: DataTypes.SMALLINT,
+          allowNull: true,
+          field: "hydration_level",
+          validate: { min: 1, max: 5 },
+        },
+        exerciseFrequency: {
+          type: DataTypes.ENUM(...EXERCISE_FREQUENCIES),
+          allowNull: true,
+          field: "exercise_frequency",
+        },
+        dietType: {
+          type: DataTypes.ENUM(...DIET_TYPES),
+          allowNull: true,
+          field: "diet_type",
+        },
+        smokingStatus: {
+          type: DataTypes.ENUM(...SMOKING_STATUSES),
+          allowNull: true,
+          field: "smoking_status",
+        },
+        screenTime: {
+          type: DataTypes.SMALLINT,
+          allowNull: true,
+          field: "screen_time",
+          validate: { min: 1, max: 5 },
         },
         createdAt: {
           type: DataTypes.DATE,
