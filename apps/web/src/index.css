@@ -13,25 +13,51 @@
 
 :root {
 	--mobile-app-width: 430px;
+	--safe-top: env(safe-area-inset-top, 0px);
+	--safe-bottom: env(safe-area-inset-bottom, 0px);
+	--safe-left: env(safe-area-inset-left, 0px);
+	--safe-right: env(safe-area-inset-right, 0px);
 	position: relative;
+}
+
+/* ─── Mobile-optimised global resets ───────────────────────────────────────── */
+html {
+	-webkit-text-size-adjust: 100%;
+	text-size-adjust: 100%;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
 }
 
 html,
 body {
 	width: 100%;
 	min-height: 100%;
+	/* Prevent overscroll "bounce" in standalone/PWA mode */
+	overscroll-behavior-y: none;
 }
 
 body {
 	margin: 0;
 	display: flex;
 	justify-content: center;
+	/* Prevent text-selection highlight flash on tap */
+	-webkit-tap-highlight-color: transparent;
+	/* Prevent pull-to-refresh in PWA */
+	overscroll-behavior: none;
 }
 
+/* Use dvh (dynamic viewport height) – accounts for iOS Safari address bar */
 #root {
 	width: min(100vw, var(--mobile-app-width));
-	min-height: 100vh;
+	min-height: 100dvh;
+	min-height: -webkit-fill-available; /* fallback for older WebKit */
 }
+
+/* ─── Safe-area utility classes ────────────────────────────────────────────── */
+.safe-top    { padding-top:    var(--safe-top); }
+.safe-bottom { padding-bottom: var(--safe-bottom); }
+.safe-left   { padding-left:   var(--safe-left); }
+.safe-right  { padding-right:  var(--safe-right); }
 
 /* Chat bubble animations */
 @keyframes fade-in-left {

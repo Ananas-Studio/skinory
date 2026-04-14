@@ -109,7 +109,7 @@ function ScanScreen() {
   // ── Permission denied state ──────────────────────────────────────────────
   if (permissionStatus === 'denied' || scanError?.type === 'permission_denied') {
     return (
-      <main className="flex h-screen flex-col bg-[#18181b] text-white [font-family:Geist,'Avenir_Next','Segoe_UI',sans-serif]">
+      <main className="flex h-dvh flex-col bg-[#18181b] text-white [font-family:Geist,'Avenir_Next','Segoe_UI',sans-serif]">
         <div className="flex items-center gap-3 px-4 pt-4">
           <IconButton onClick={() => navigate(-1)} className="size-[32px] rounded-[6px] border border-white/20 bg-black/30 text-white hover:bg-black/40">
             <ArrowLeft size={16} />
@@ -133,7 +133,7 @@ function ScanScreen() {
   // ── Camera not found state ───────────────────────────────────────────────
   if (scanError?.type === 'camera_not_found') {
     return (
-      <main className="flex h-screen flex-col bg-[#18181b] text-white [font-family:Geist,'Avenir_Next','Segoe_UI',sans-serif]">
+      <main className="flex h-dvh flex-col bg-[#18181b] text-white [font-family:Geist,'Avenir_Next','Segoe_UI',sans-serif]">
         <div className="flex items-center gap-3 px-4 pt-4">
           <IconButton onClick={() => navigate(-1)} className="size-[32px] rounded-[6px] border border-white/20 bg-black/30 text-white hover:bg-black/40">
             <ArrowLeft size={16} />
@@ -158,7 +158,7 @@ function ScanScreen() {
   // ── Initialization error state ───────────────────────────────────────────
   if (scanError && phase === 'scanning') {
     return (
-      <main className="flex h-screen flex-col bg-[#18181b] text-white [font-family:Geist,'Avenir_Next','Segoe_UI',sans-serif]">
+      <main className="flex h-dvh flex-col bg-[#18181b] text-white [font-family:Geist,'Avenir_Next','Segoe_UI',sans-serif]">
         <div className="flex items-center gap-3 px-4 pt-4">
           <IconButton onClick={() => navigate(-1)} className="size-[32px] rounded-[6px] border border-white/20 bg-black/30 text-white hover:bg-black/40">
             <ArrowLeft size={16} />
@@ -179,7 +179,7 @@ function ScanScreen() {
   }
 
   return (
-    <main className="relative flex h-screen flex-col overflow-hidden bg-black text-white [font-family:Geist,'Avenir_Next','Segoe_UI',sans-serif]">
+    <main className="relative flex h-dvh flex-col overflow-hidden bg-black text-white [font-family:Geist,'Avenir_Next','Segoe_UI',sans-serif]">
       {/* Camera preview — html5-qrcode renders its video element here.
           Sizing is forced via #barcode-scanner rules in index.css because
           the library sets inline styles that override Tailwind classes. */}
@@ -207,7 +207,7 @@ function ScanScreen() {
       )}
 
       {/* Top bar */}
-      <div className="relative z-20 flex items-center gap-3 px-4 pt-4">
+      <div className="relative z-20 flex items-center gap-3 px-4 pt-[max(1rem,var(--safe-top))]">
         <IconButton onClick={() => navigate(-1)} className="size-[32px] rounded-[6px] border border-white/20 bg-black/30 text-white hover:bg-black/40">
           <ArrowLeft size={16} />
         </IconButton>
@@ -215,7 +215,7 @@ function ScanScreen() {
       </div>
 
       {/* Bottom overlay area */}
-      <div className="relative z-20 mt-auto flex flex-col items-center gap-4 px-6 pb-24 pt-4">
+      <div className="relative z-20 mt-auto flex flex-col items-center gap-4 px-6 pb-[max(6rem,calc(4rem+var(--safe-bottom)))] pt-4">
         {/* Phase-specific UI */}
         {phase === 'scanning' && permissionStatus === 'checking' && (
           <StatusPill>

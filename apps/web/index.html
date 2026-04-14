@@ -2,9 +2,26 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>web</title>
+
+    <!-- Viewport: viewport-fit=cover enables edge-to-edge on notched devices -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+
+    <!-- Theme color for browser chrome (Android + iOS 15+) -->
+    <meta name="theme-color" content="#FEE7E1" />
+
+    <!-- iOS standalone PWA meta tags -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Skinory" />
+
+    <!-- Prevent phone number detection on iOS -->
+    <meta name="format-detection" content="telephone=no" />
+
+    <!-- Icons -->
+    <link rel="icon" type="image/svg+xml" href="/skinory-logo.svg" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon-180x180.png" />
+
+    <title>Skinory</title>
   </head>
   <body>
     <div id="root"></div>

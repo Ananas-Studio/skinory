@@ -93,7 +93,7 @@ function AppRoutes() {
       </div>
 
       {shouldShowBottomNav ? (
-        <div className="fixed bottom-0 left-1/2 z-40 w-[min(100vw,var(--mobile-app-width))] -translate-x-1/2">
+        <div className="fixed bottom-0 left-1/2 z-40 w-[min(100vw,var(--mobile-app-width))] -translate-x-1/2 bg-white">
           <BottomNav active={activeNav} />
         </div>
       ) : null}

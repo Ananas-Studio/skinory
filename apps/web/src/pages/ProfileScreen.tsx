@@ -119,7 +119,7 @@ function ProfileScreen() {
   }
 
   return (
-    <div className="font-[Geist,'Avenir_Next','Segoe_UI',sans-serif] min-h-screen bg-white">
+    <div className="font-[Geist,'Avenir_Next','Segoe_UI',sans-serif] min-h-dvh bg-white">
       {/* Header */}
       <div className="flex items-center gap-3 p-4 border-b border-[#f4f4f5]">
         <button type="button" onClick={() => navigate(-1)} className="grid h-9 w-9 place-items-center rounded-xl bg-white text-[#09090b]">

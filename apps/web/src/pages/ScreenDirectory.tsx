@@ -15,7 +15,7 @@ const pageLinks = [
 
 function ScreenDirectory() {
   return (
-    <main className="min-h-screen bg-[#fff7f4] px-5 py-7 text-[#18181b] [font-family:Geist,'Avenir_Next',sans-serif]">
+    <main className="min-h-dvh bg-[#fff7f4] px-5 py-7 text-[#18181b] [font-family:Geist,'Avenir_Next',sans-serif]">
       <h1 className="mb-2 text-[28px] leading-none">Skinory Screens</h1>
       <p className="mb-4 text-[#71717a]">Figma implementation pages</p>
       <div>

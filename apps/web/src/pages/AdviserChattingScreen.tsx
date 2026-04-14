@@ -310,7 +310,7 @@ function AdviserChattingScreen() {
       </section>
 
       {/* Input bar */}
-      <section className="mt-auto mb-24 pt-4">
+      <section className="mt-auto mb-[max(6rem,calc(4rem+var(--safe-bottom)))] pt-4">
         <div className="flex gap-[4px] rounded-[24px] border border-[#e4e4e7] bg-white p-[4px]">
           <div className="flex h-[40px] flex-1 items-center gap-0 overflow-hidden rounded-l-[8px] bg-white px-[12px] py-[10px]">
             <div className="shrink-0 pr-[8px] opacity-50">

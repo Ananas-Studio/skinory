@@ -42,7 +42,7 @@ export function ScreenFrame({
 }) {
   return (
     <main
-      className={`relative flex min-h-screen flex-col overflow-hidden px-4 text-[#18181b] [font-family:Geist,'Avenir_Next','Segoe_UI',sans-serif] ${frameVariantClasses[variant]} ${className}`}
+      className={`relative flex min-h-dvh flex-col overflow-hidden px-4 text-[#18181b] [font-family:Geist,'Avenir_Next','Segoe_UI',sans-serif] ${frameVariantClasses[variant]} ${className}`}
       style={variant === 'camera' ? cameraBackgroundStyle : undefined}
     >
       {children}
@@ -233,7 +233,7 @@ export function BottomNav({ active, className }: { active: NavKey; className?: s
   ]
 
   return (
-    <nav className={cn('grid h-17 grid-cols-5 border-t-[3px] border-border bg-white', className)}>
+    <nav className={cn('grid h-17 grid-cols-5 border-t-[3px] border-border bg-white pb-[var(--safe-bottom)]', className)}>
       {tabs.map((tab) => {
         const Icon = tab.icon
         const isActive = tab.key === active

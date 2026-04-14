@@ -1,14 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, ChevronRight, Loader2, Plus, Trash2 } from '@skinory/ui/icons'
+import { ArrowLeft, Loader2, Trash2 } from '@skinory/ui/icons'
 import { Button } from '@skinory/ui/components/button'
 import { useAuth } from '../../contexts/auth-context'
 import {
   fetchProfile,
-  listConnections,
   removeConnection,
   type AuthConnection,
-  type ProfileData,
 } from '../../lib/auth-api'
 import { ScreenFrame } from '../shared'
 
@@ -50,7 +48,7 @@ function AccountsEdit() {
   }
 
   return (
-    <div className="font-[Geist,'Avenir_Next','Segoe_UI',sans-serif] min-h-screen bg-white">
+    <div className="font-[Geist,'Avenir_Next','Segoe_UI',sans-serif] min-h-dvh bg-white">
       <div className="flex items-center gap-3 p-4 border-b border-[#f4f4f5]">
         <button type="button" onClick={() => navigate(-1)} className="grid h-9 w-9 place-items-center rounded-xl bg-white text-[#09090b]">
           <ArrowLeft size={18} />

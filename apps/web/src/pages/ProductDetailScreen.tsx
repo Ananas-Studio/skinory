@@ -12,15 +12,12 @@ import {
   Leaf,
   Loader2,
   PackageSearch,
-  Pencil,
   Plus,
   Share2,
   ShieldAlert,
   Sparkles,
   Star,
 } from '@skinory/ui/icons'
-import { Badge } from '@skinory/ui/components/badge'
-import { Button } from '@skinory/ui/components/button'
 import { Input } from '@skinory/ui/components/input'
 import { cn } from '@skinory/ui/lib/utils'
 import { useAuth } from '../contexts/auth-context'
@@ -197,7 +194,8 @@ function StatBubble({ icon, label, value, color }: { icon: React.ReactNode; labe
 export default function ProductDetailScreen() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { userId } = useAuth()
+  const { user } = useAuth()
+  const userId = user?.id
 
   const [product, setProduct] = useState<ProductDetail | null>(null)
   const [loading, setLoading] = useState(true)
@@ -255,7 +253,7 @@ export default function ProductDetailScreen() {
 
   if (loading) {
     return (
-      <main className="relative flex min-h-screen flex-col items-center justify-center bg-[#fdf8f6] font-[Geist,'Avenir_Next','Segoe_UI',sans-serif]">
+      <main className="relative flex min-h-dvh flex-col items-center justify-center bg-[#fdf8f6] font-[Geist,'Avenir_Next','Segoe_UI',sans-serif]">
         <div className="relative">
           <div className="h-16 w-16 rounded-full border-[3px] border-[#f4e0da] border-t-[#ee886e] animate-spin" />
           <Droplet className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-5 w-5 text-[#ee886e]" />
@@ -267,7 +265,7 @@ export default function ProductDetailScreen() {
 
   if (error || !product) {
     return (
-      <main className="relative flex min-h-screen flex-col bg-[#fdf8f6] px-5 font-[Geist,'Avenir_Next','Segoe_UI',sans-serif]">
+      <main className="relative flex min-h-dvh flex-col bg-[#fdf8f6] px-5 font-[Geist,'Avenir_Next','Segoe_UI',sans-serif]">
         <div className="flex items-center gap-3 pt-5 pb-6">
           <button onClick={() => navigate(-1)} className="grid h-10 w-10 place-items-center rounded-full bg-white/80 backdrop-blur active:scale-95 transition-transform">
             <ArrowLeft className="h-[18px] w-[18px] text-[#3f3f46]" />
@@ -310,7 +308,7 @@ export default function ProductDetailScreen() {
   if (product.obfExtras.packaging) detailChips.push({ label: 'Packaging', value: String(product.obfExtras.packaging) })
 
   return (
-    <main className="relative min-h-screen bg-[#fdf8f6] pb-32 font-[Geist,'Avenir_Next','Segoe_UI',sans-serif] text-[#18181b]">
+    <main className="relative min-h-dvh bg-[#fdf8f6] pb-32 font-[Geist,'Avenir_Next','Segoe_UI',sans-serif] text-[#18181b]">
 
       {/* ━━━ Hero gradient header ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
       <div className="relative overflow-hidden bg-gradient-to-b from-[#fbe9e4] via-[#fdf2ef] to-[#fdf8f6] pb-6">

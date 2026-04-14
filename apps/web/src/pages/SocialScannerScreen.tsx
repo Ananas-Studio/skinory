@@ -246,7 +246,7 @@ function SocialScannerScreen() {
   const isAnalyzing = scrapeStatus === 'loading' || detectStatus === 'loading' || enrichStatus === 'loading'
 
   return (
-    <div className="font-[Geist,'Avenir_Next','Segoe_UI',sans-serif] min-h-screen bg-white">
+    <div className="font-[Geist,'Avenir_Next','Segoe_UI',sans-serif] min-h-dvh bg-white">
       {/* ── Header ──────────────────────────────────────────────────── */}
       <div className="flex items-center gap-3 border-b px-4 py-3">
         <IconButton onClick={() => navigate(-1)}>
