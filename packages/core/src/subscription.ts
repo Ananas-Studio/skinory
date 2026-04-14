@@ -5,6 +5,7 @@
 export const USAGE_CATEGORIES = [
   "ai_evaluation",
   "ai_advice",
+  "ai_social_detect",
   "scan_resolve",
   "routine_generate",
 ] as const
@@ -14,6 +15,7 @@ export type UsageCategory = (typeof USAGE_CATEGORIES)[number]
 export const USAGE_CATEGORY_LABELS: Record<UsageCategory, string> = {
   ai_evaluation: "AI Product Evaluation",
   ai_advice: "AI Skincare Adviser",
+  ai_social_detect: "AI Social Scan",
   scan_resolve: "Product Scan",
   routine_generate: "Routine Generation",
 }
@@ -21,6 +23,7 @@ export const USAGE_CATEGORY_LABELS: Record<UsageCategory, string> = {
 export interface TierLimits {
   ai_evaluation: number
   ai_advice: number
+  ai_social_detect: number
   scan_resolve: number
   routine_generate: number
 }
@@ -40,6 +43,7 @@ export const SUBSCRIPTION_TIERS: Record<string, SubscriptionTier> = {
     limits: {
       ai_evaluation: 3,
       ai_advice: 5,
+      ai_social_detect: 10,
       scan_resolve: 20,
       routine_generate: 10,
     },
@@ -71,5 +75,5 @@ export function isLimitExceeded(used: number, limit: number): boolean {
 }
 
 export function isAiCategory(category: UsageCategory): boolean {
-  return category === "ai_evaluation" || category === "ai_advice"
+  return category === "ai_evaluation" || category === "ai_advice" || category === "ai_social_detect"
 }

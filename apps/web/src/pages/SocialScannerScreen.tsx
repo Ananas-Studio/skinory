@@ -18,6 +18,7 @@ import { Button } from '@skinory/ui/components/button'
 import { Input } from '@skinory/ui/components/input'
 import { useAuth } from '../contexts/auth-context'
 import { IconButton } from './shared'
+import { fetchUsage } from '../lib/usage-api'
 import {
   scrapeLink,
   detectProducts,
@@ -143,6 +144,15 @@ function SocialScannerScreen() {
   const [detectError, setDetectError] = useState<string | null>(null)
   const [enrichError, setEnrichError] = useState<string | null>(null)
 
+  // AI usage
+  const [aiUsage, setAiUsage] = useState<{ used: number; limit: number; remaining: number } | null>(null)
+
+  useEffect(() => {
+    fetchUsage(userId)
+      .then((data) => setAiUsage(data.limits.ai_social_detect))
+      .catch(() => {})
+  }, [userId])
+
   // ── Paste from clipboard ─────────────────────────────────────────────
   const handlePaste = useCallback(async () => {
     try {
@@ -205,6 +215,8 @@ function SocialScannerScreen() {
         if (cancelled) return
         setDetectedProducts(result.detectedProducts)
         setDetectStatus('done')
+        // Refresh usage count after AI call
+        fetchUsage(userId).then((d) => setAiUsage(d.limits.ai_social_detect)).catch(() => {})
       })
       .catch((err) => {
         if (cancelled) return
@@ -271,6 +283,16 @@ function SocialScannerScreen() {
           <p className="text-sm text-muted-foreground">
             Paste a link from Instagram, TikTok, or Facebook to detect skincare products.
           </p>
+          {aiUsage && (
+            <div className="flex items-center gap-1.5">
+              <Sparkles size={12} className={aiUsage.remaining === 0 ? 'text-red-400' : 'text-[#EE886E]'} />
+              <span className={`text-xs font-medium ${aiUsage.remaining === 0 ? 'text-red-500' : 'text-[#71717a]'}`}>
+                {aiUsage.remaining > 0
+                  ? `${aiUsage.remaining} AI scan${aiUsage.remaining > 1 ? 's' : ''} remaining`
+                  : 'AI scan limit reached'}
+              </span>
+            </div>
+          )}
           <div className="flex gap-2">
             <Input
               ref={inputRef}

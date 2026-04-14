@@ -3,6 +3,7 @@
 import { Router } from "express"
 import { z } from "zod"
 import { requireAuth } from "../middlewares/auth.middleware.js"
+import { checkUsage, recordUsageFromReq } from "../middlewares/usage.middleware.js"
 import { parseSocialLink } from "../services/social/social-link-parser.js"
 import { readSocialContent } from "../services/social/social-content-reader.js"
 import { detectProducts as llmDetect } from "../services/social/social-product-detector.js"
@@ -74,7 +75,7 @@ socialRouter.post("/scrape", requireAuth, async (req, res) => {
 // ─── POST /social/detect ─────────────────────────────────────────────────────
 // Step 2: Send text to LLM → extract product mentions
 
-socialRouter.post("/detect", requireAuth, async (req, res) => {
+socialRouter.post("/detect", requireAuth, checkUsage("ai_social_detect"), async (req, res) => {
   try {
     const parseResult = detectBodySchema.safeParse(req.body)
     if (!parseResult.success) {
@@ -91,6 +92,7 @@ socialRouter.post("/detect", requireAuth, async (req, res) => {
 
     const detected = await llmDetect(parseResult.data.text)
 
+    await recordUsageFromReq(req)
     res.status(200).json({ ok: true, data: { detectedProducts: detected } })
   } catch (error) {
     console.error("[social/detect] Unexpected error:", error)
