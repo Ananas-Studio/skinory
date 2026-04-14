@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { toast } from 'sonner'
 import { ArrowLeft, Loader2 } from '@skinory/ui/icons'
 import { Button } from '@skinory/ui/components/button'
 import {
@@ -63,7 +64,7 @@ function LifestyleEdit() {
         setHydrationLevel(sp?.hydrationLevel ?? null)
         setScreenTime(sp?.screenTime ?? null)
       })
-      .catch(console.error)
+      .catch((err) => { console.error(err); toast.error(err instanceof Error ? err.message : 'Failed to load lifestyle data') })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
   }, [userId])
@@ -86,6 +87,7 @@ function LifestyleEdit() {
       navigate(-1)
     } catch (err) {
       console.error('Save failed', err)
+      toast.error(err instanceof Error ? err.message : 'Failed to save lifestyle data')
     } finally {
       setSaving(false)
     }

@@ -229,7 +229,7 @@ export function BottomNav({ active, className }: { active: NavKey; className?: s
     { key: 'inventory' as const, label: 'Inventory', icon: Album, href: '/inventory' },
     { key: 'scan' as const, label: '', icon: ScanLine, href: '/scan' },
     { key: 'adviser' as const, label: 'Adviser', icon: MessagesSquare, href: '/adviser/chat' },
-    { key: 'routine' as const, label: 'Routine', icon: AlarmClock, href: '/home' },
+    { key: 'routine' as const, label: 'Routine', icon: AlarmClock, href: '/routine' },
   ]
 
   return (

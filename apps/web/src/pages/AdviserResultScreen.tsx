@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
+import { toast } from 'sonner'
 import {
   ArrowLeft,
   Check,
@@ -180,6 +181,7 @@ function AdviserResultScreen() {
       setResult(data)
     } catch (err: any) {
       setError(err.message ?? 'Evaluation failed')
+      toast.error(err.message ?? 'Evaluation failed')
     } finally {
       setLoading(false)
     }
@@ -203,6 +205,7 @@ function AdviserResultScreen() {
       setInventoryAdded(true)
     } catch (err: any) {
       console.error('Failed to add to inventory:', err)
+      toast.error(err.message ?? 'Failed to add to inventory')
     } finally {
       setAddingToInventory(false)
     }

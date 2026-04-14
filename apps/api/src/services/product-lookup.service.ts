@@ -134,7 +134,7 @@ async function persistExternalProduct(
   const brandName = obfProduct.brands?.split(",")[0]?.trim() || null;
   const imageUrl = obfProduct.image_url?.trim() || null;
   const rawIngredientsText = obfProduct.ingredients_text?.trim() || null;
-  const category = extractCategory(obfProduct.categories);
+  const category = extractCategory(obfProduct.categories, obfProduct.categories_tags);
 
   return sequelize.transaction(async (transaction: Transaction) => {
     // 1. Brand
@@ -233,13 +233,67 @@ async function persistExternalProduct(
   });
 }
 
-function extractCategory(categories: string | undefined): "skincare" | "makeup" | "supplement" | "other" {
-  if (!categories) return "other";
-  const lower = categories.toLowerCase();
-  if (lower.includes("skincare") || lower.includes("skin care") || lower.includes("moisturizer") || lower.includes("cleanser") || lower.includes("serum")) return "skincare";
-  if (lower.includes("makeup") || lower.includes("cosmetic") || lower.includes("foundation") || lower.includes("lipstick")) return "makeup";
-  if (lower.includes("supplement") || lower.includes("vitamin")) return "supplement";
-  return "other";
+// ─── Skincare keyword sets (OBF uses these in categories & categories_tags) ──
+
+const SKINCARE_KEYWORDS = [
+  "skincare", "skin care", "skin-care",
+  // face
+  "face", "facial", "visage",
+  // product types
+  "moisturizer", "moisturiser", "cleanser", "serum", "toner",
+  "exfoliant", "exfoliator", "scrub", "peel",
+  "mask", "eye cream", "eye care",
+  "lotion", "cream", "balm", "oil", "gel", "essence", "ampoule", "emulsion",
+  // concerns
+  "anti-aging", "anti-wrinkle", "acne", "blemish", "hydrating", "brightening",
+  // sun
+  "sunscreen", "suncare", "sun-care", "sun protection", "spf",
+  "facial-sunscreen", "in-sun-protection",
+  // body
+  "body care", "body-care", "body lotion", "body cream", "hand cream",
+  // cleansing
+  "micellar", "cleansing", "make-up remover", "makeup remover",
+  // beauty generic (OBF tags)
+  "beauty", "beauty-products", "non-food-products",
+  // hair (still skincare-adjacent in OBF context)
+  "shampoo", "conditioner", "hair care", "hair-care",
+  // lips
+  "lip care", "lip balm", "lip-care",
+]
+
+const MAKEUP_KEYWORDS = [
+  "makeup", "make-up", "cosmetic",
+  "foundation", "lipstick", "mascara", "eyeliner", "eyeshadow",
+  "blush", "concealer", "primer", "contour", "highlighter",
+  "nail polish", "nail-polish",
+]
+
+const SUPPLEMENT_KEYWORDS = [
+  "supplement", "vitamin", "dietary",
+  "nutraceutical", "collagen supplement",
+]
+
+function extractCategory(
+  categories: string | undefined,
+  categoriesTags: string[] | undefined,
+): "skincare" | "makeup" | "supplement" | "other" {
+  // Merge free-text categories + normalized tags into one searchable string
+  const parts: string[] = []
+  if (categories) parts.push(categories.toLowerCase())
+  if (categoriesTags?.length) parts.push(categoriesTags.join(" ").toLowerCase())
+  if (parts.length === 0) return "other"
+
+  const haystack = parts.join(" ")
+
+  // Check supplement first (narrow) to avoid false positives with "vitamin" in skincare
+  if (SUPPLEMENT_KEYWORDS.some((kw) => haystack.includes(kw))) {
+    // If it also matches skincare strongly, prefer skincare
+    if (!SKINCARE_KEYWORDS.some((kw) => haystack.includes(kw))) return "supplement"
+  }
+  if (SKINCARE_KEYWORDS.some((kw) => haystack.includes(kw))) return "skincare"
+  if (MAKEUP_KEYWORDS.some((kw) => haystack.includes(kw))) return "makeup"
+  if (SUPPLEMENT_KEYWORDS.some((kw) => haystack.includes(kw))) return "supplement"
+  return "other"
 }
 
 // ─── Main entry point ────────────────────────────────────────────────────────

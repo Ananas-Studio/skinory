@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { toast } from 'sonner'
 import { Camera, Link } from '@skinory/ui/icons'
 import { Button } from '@skinory/ui/components/button'
 import { products } from './data'
@@ -15,7 +16,7 @@ function AdviserScanScreen() {
   const [availableProducts, setAvailableProducts] = useState<ProductListItem[]>([])
 
   useEffect(() => {
-    listProducts(userId).then(setAvailableProducts).catch(console.error)
+    listProducts(userId).then(setAvailableProducts).catch((err) => { console.error(err); toast.error(err instanceof Error ? err.message : 'Failed to load products') })
   }, [userId])
 
   const analysisItems = [

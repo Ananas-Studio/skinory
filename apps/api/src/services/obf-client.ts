@@ -24,6 +24,7 @@ export interface ObfProduct {
   image_url?: string
   ingredients_text?: string
   categories?: string
+  categories_tags?: string[]
 }
 
 export interface ObfProductResult {
@@ -57,6 +58,7 @@ export async function fetchObfProduct(barcode: string): Promise<ObfProductResult
         image_url: typeof p.image_url === "string" ? p.image_url : undefined,
         ingredients_text: typeof p.ingredients_text === "string" ? p.ingredients_text : undefined,
         categories: typeof p.categories === "string" ? p.categories : undefined,
+        categories_tags: Array.isArray(p.categories_tags) ? p.categories_tags as string[] : undefined,
       },
     }
   } catch {

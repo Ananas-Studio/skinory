@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
+import { toast } from 'sonner'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { ArrowLeft, Search, SendHorizontal } from '@skinory/ui/icons'
@@ -203,7 +204,7 @@ function AdviserChattingScreen() {
     if (!state?.initialMessages?.length && !state?.autoSendMessage) {
       getMessages(userId, sessionId)
         .then(setMessages)
-        .catch(console.error)
+        .catch((err) => { console.error(err); toast.error(err instanceof Error ? err.message : 'Failed to load messages') })
     }
   }, [sessionId, navigate, state?.initialMessages?.length, state?.autoSendMessage])
 

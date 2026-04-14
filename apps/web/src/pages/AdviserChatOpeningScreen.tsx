@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
+import { toast } from 'sonner'
 import { ArrowLeft, Loader2, Search, SendHorizontal } from '@skinory/ui/icons'
 import { Button } from '@skinory/ui/components/button'
 import { Input } from '@skinory/ui/components/input'
@@ -35,6 +36,8 @@ function AdviserChatOpeningScreen() {
   const inputRef = useRef<HTMLInputElement>(null)
   const autoTriggered = useRef(false)
 
+  const firstName = user!.fullName?.split(' ')[0] || ''
+
   // Auto-trigger chat when arriving with a productId
   useEffect(() => {
     if (!productId || autoTriggered.current) return
@@ -56,6 +59,7 @@ function AdviserChatOpeningScreen() {
         })
       } catch (error) {
         console.error('Failed to create session:', error)
+        toast.error(error instanceof Error ? error.message : 'Failed to create session')
         setSending(false)
       }
     })()
@@ -107,6 +111,7 @@ function AdviserChatOpeningScreen() {
       })
     } catch (error) {
       console.error('Failed to start chat:', error)
+      toast.error(error instanceof Error ? error.message : 'Failed to start chat')
       setSending(false)
     }
   }
@@ -163,7 +168,7 @@ function AdviserChatOpeningScreen() {
         {/* Greeting */}
         <div className="flex flex-col gap-2">
           <div className="w-[269px] text-[36px] leading-[1.12] [font-family:Noorliza,'Iowan_Old_Style',serif]">
-            <p className="text-[#ee886e]">Hi Sena,</p>
+            <p className="text-[#ee886e]">Hi{firstName ? ` ${firstName}` : ''},</p>
             <p className="text-black">How can I help you today?</p>
           </div>
           <p className="w-[269px] text-[14px] leading-[20px] font-normal text-[#3f3f46]">

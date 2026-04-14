@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { toast } from 'sonner'
 import {
   ArrowLeft,
   CameraOff,
@@ -71,7 +72,9 @@ function ScanScreen() {
           navigate('/adviser/result', { state: { productId: lookup.product.id } })
         }
       } catch (err) {
-        setErrorMessage(err instanceof Error ? err.message : 'Failed to look up barcode')
+        const msg = err instanceof Error ? err.message : 'Failed to look up barcode'
+        setErrorMessage(msg)
+        toast.error(msg)
         setPhase('not_found')
       } finally {
         processingRef.current = false

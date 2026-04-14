@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { toast } from 'sonner'
 import { ArrowLeft, ChevronRight, Loader2, LogOut, User as UserIcon, Droplet, AlertTriangle, Heart, Leaf, Link2 } from '@skinory/ui/icons'
 import { Button } from '@skinory/ui/components/button'
 import { useAuth } from '../contexts/auth-context'
@@ -93,7 +94,7 @@ function ProfileScreen() {
     let cancelled = false
     fetchProfile(userId)
       .then((data) => { if (!cancelled) setProfile(data) })
-      .catch(console.error)
+      .catch((err) => { console.error(err); toast.error(err instanceof Error ? err.message : 'Failed to load profile') })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
   }, [userId])
@@ -103,7 +104,8 @@ function ProfileScreen() {
     try {
       await signOut()
       navigate('/signin', { replace: true })
-    } catch {
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to sign out')
       setSignOutLoading(false)
     }
   }, [signOut, navigate])

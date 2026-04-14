@@ -9,6 +9,34 @@ export {
 } from "./ingredients.js";
 
 export {
+  // Step Categories
+  ROUTINE_STEP_CATEGORIES,
+  ROUTINE_STEP_LABELS,
+  ROUTINE_STEP_ICONS,
+  type RoutineStepCategory,
+
+  // Time of Day
+  ROUTINE_TIMES,
+  type RoutineTime,
+
+  // Ordering
+  MORNING_STEP_ORDER,
+  EVENING_STEP_ORDER,
+  STEP_ORDER_MAP,
+  getStepOrder,
+
+  // Product → Step Mapping
+  PRODUCT_TO_STEP_MAP,
+
+  // Conflict Rules
+  INGREDIENT_CONFLICT_RULES,
+  detectConflicts,
+  type ConflictSeverity,
+  type ConflictRule,
+  type DetectedConflict,
+} from "./routine-steps.js";
+
+export {
   // Skin Types
   SKIN_TYPES,
   SKIN_TYPE_LABELS,

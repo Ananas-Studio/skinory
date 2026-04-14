@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
+import { toast } from 'sonner'
 import {
   AlertCircle,
   ArrowLeft,
@@ -109,6 +110,7 @@ function IngredientCaptureScreen() {
         setScreenState('review')
       } catch (err: any) {
         setErrorMessage(err.message ?? 'Failed to extract ingredients')
+        toast.error(err.message ?? 'Failed to extract ingredients')
         setScreenState('error')
       }
     },
@@ -146,6 +148,7 @@ function IngredientCaptureScreen() {
       navigate('/adviser/result', { state: { productId, result: evalResult } })
     } catch (err: any) {
       setErrorMessage(err.message ?? 'Failed to save ingredients')
+      toast.error(err.message ?? 'Failed to save ingredients')
       setScreenState('error')
     }
   }

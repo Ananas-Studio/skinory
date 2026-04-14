@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { toast } from 'sonner'
 import {
   ArrowLeft,
   LinkIcon,
@@ -184,7 +185,9 @@ function SocialScannerScreen() {
       setScrapeData(data)
       setScrapeStatus('done')
     } catch (err) {
-      setScrapeError(err instanceof Error ? err.message : 'Failed to read the social post')
+      const msg = err instanceof Error ? err.message : 'Failed to read the social post'
+      setScrapeError(msg)
+      toast.error(msg)
       setScrapeStatus('error')
     }
   }, [url, userId])
@@ -205,7 +208,9 @@ function SocialScannerScreen() {
       })
       .catch((err) => {
         if (cancelled) return
-        setDetectError(err instanceof Error ? err.message : 'Failed to detect products')
+        const msg = err instanceof Error ? err.message : 'Failed to detect products'
+        setDetectError(msg)
+        toast.error(msg)
         setDetectStatus('error')
       })
 
@@ -228,7 +233,9 @@ function SocialScannerScreen() {
       })
       .catch((err) => {
         if (cancelled) return
-        setEnrichError(err instanceof Error ? err.message : 'Failed to enrich products')
+        const msg = err instanceof Error ? err.message : 'Failed to enrich products'
+        setEnrichError(msg)
+        toast.error(msg)
         setEnrichStatus('error')
       })
 

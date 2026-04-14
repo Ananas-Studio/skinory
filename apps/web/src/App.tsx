@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
+import { Toaster } from 'sonner'
 import type { NavKey } from './pages/types'
 import { AuthProvider } from './contexts/auth-context'
 import ProtectedRoute from './components/protected-route'
@@ -18,6 +19,7 @@ import LifestyleEdit from './pages/profile/LifestyleEdit'
 import PersonalInfoEdit from './pages/profile/PersonalInfoEdit'
 import PreferencesEdit from './pages/profile/PreferencesEdit'
 import SkinProfileEdit from './pages/profile/SkinProfileEdit'
+import RoutineScreen from './pages/RoutineScreen'
 import ScanScreen from './pages/ScanScreen'
 import ScreenDirectory from './pages/ScreenDirectory'
 import SearchScreen from './pages/SearchScreen'
@@ -28,6 +30,10 @@ import SplashScreen from './pages/SplashScreen'
 import { BottomNav } from './pages/shared'
 
 function getActiveNav(pathname: string): NavKey {
+  if (pathname.startsWith('/routine')) {
+    return 'routine'
+  }
+
   if (pathname.startsWith('/inventory')) {
     return 'inventory'
   }
@@ -88,6 +94,7 @@ function AppRoutes() {
           <Route path="/profile/accounts" element={<ProtectedRoute><AccountsEdit /></ProtectedRoute>} />
           <Route path="/social" element={<ProtectedRoute><SocialScannerScreen /></ProtectedRoute>} />
           <Route path="/product/:id" element={<ProtectedRoute><ProductDetailScreen /></ProtectedRoute>} />
+          <Route path="/routine" element={<ProtectedRoute><RoutineScreen /></ProtectedRoute>} />
           <Route path="*" element={<ScreenDirectory />} />
         </Routes>
       </div>
@@ -111,6 +118,16 @@ function App() {
   return (
     <AuthProvider>
       <AppRoutes />
+      <Toaster
+        position="top-center"
+        toastOptions={{
+          style: {
+            fontFamily: "Geist, 'Avenir Next', 'Segoe UI', sans-serif",
+            borderRadius: '14px',
+          },
+        }}
+        richColors
+      />
     </AuthProvider>
   )
 }

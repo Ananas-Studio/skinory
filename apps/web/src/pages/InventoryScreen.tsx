@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { toast } from 'sonner'
 import { Button } from '@skinory/ui/components/button'
 import { Loader2 } from '@skinory/ui/icons'
 import { HorizontalProductCard, ScreenFrame, SearchField } from './shared'
@@ -107,8 +108,8 @@ function InventoryScreen() {
         setHistoryItems(res.scans)
       }
       setLoaded((prev) => ({ ...prev, [tab]: true }))
-    } catch {
-      // Keep previous data on error
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to load items')
     } finally {
       setLoading(false)
     }

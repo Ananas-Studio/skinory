@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { toast } from 'sonner'
 import { Bell, LinkIcon, Loader2, ScanLine, UserRound } from '@skinory/ui/icons'
 import { Button } from '@skinory/ui/components/button'
 import {
@@ -55,8 +56,8 @@ function HomeScreen() {
         setHistoryTotal(historyRes.total)
         setFavoriteIds(new Set(favIds))
       })
-      .catch(() => {
-        // Silently fail — show empty state
+      .catch((e) => {
+        toast.error(e instanceof Error ? e.message : 'Failed to load recent scans')
       })
       .finally(() => {
         if (!cancelled) setHistoryLoading(false)
@@ -76,7 +77,7 @@ function HomeScreen() {
         setPopularProducts(page.items)
         setProductsTotal(page.total)
       })
-      .catch(() => {})
+      .catch((e) => { toast.error(e instanceof Error ? e.message : 'Failed to load products') })
       .finally(() => {
         if (!cancelled) setProductsLoading(false)
       })
@@ -97,8 +98,8 @@ function HomeScreen() {
       })
       setPopularProducts((prev) => [...prev, ...page.items])
       setProductsTotal(page.total)
-    } catch {
-      // Silently fail
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to load more products')
     } finally {
       setLoadingMore(false)
     }
@@ -131,7 +132,8 @@ function HomeScreen() {
     try {
       if (isFav) await removeFavorite(userId, productId)
       else await addFavorite(userId, productId)
-    } catch {
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to update favorite')
       // Revert on failure
       setFavoriteIds((prev) => {
         const next = new Set(prev)

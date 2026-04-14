@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { toast } from 'sonner'
 import { ArrowLeft, Loader2 } from '@skinory/ui/icons'
 import { Button } from '@skinory/ui/components/button'
 import { useAuth } from '../../contexts/auth-context'
@@ -38,7 +39,7 @@ function PersonalInfoEdit() {
         setBirthday(data.user.birthday ?? '')
         setGender(data.user.gender)
       })
-      .catch(console.error)
+      .catch((err) => { console.error(err); toast.error(err instanceof Error ? err.message : 'Failed to load profile') })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
   }, [userId])
@@ -61,6 +62,7 @@ function PersonalInfoEdit() {
       navigate(-1)
     } catch (err) {
       console.error('Save failed', err)
+      toast.error(err instanceof Error ? err.message : 'Failed to save profile')
     } finally {
       setSaving(false)
     }

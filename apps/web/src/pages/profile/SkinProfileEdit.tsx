@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { toast } from 'sonner'
 import { ArrowLeft, Loader2 } from '@skinory/ui/icons'
 import { Button } from '@skinory/ui/components/button'
 import {
@@ -49,7 +50,7 @@ function SkinProfileEdit() {
         setAcneProne(data.skinProfile?.acneProne ?? null)
         setSelectedConcernIds(new Set(data.skinConcerns.map((c) => c.id)))
       })
-      .catch(console.error)
+      .catch((err) => { console.error(err); toast.error(err instanceof Error ? err.message : 'Failed to load skin profile') })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
   }, [userId])
@@ -74,6 +75,7 @@ function SkinProfileEdit() {
       navigate(-1)
     } catch (err) {
       console.error('Save failed', err)
+      toast.error(err instanceof Error ? err.message : 'Failed to save skin profile')
     } finally {
       setSaving(false)
     }

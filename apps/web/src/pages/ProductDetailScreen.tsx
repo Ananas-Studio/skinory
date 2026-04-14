@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { toast } from 'sonner'
 import {
+  AlarmClock,
   ArrowLeft,
   Barcode,
   Check,
@@ -29,6 +31,7 @@ import {
 } from '../lib/products-api'
 import { addFavorite, removeFavorite, fetchFavoriteIds } from '../lib/favorites-api'
 import { addToInventory } from '../lib/inventory-api'
+import AddToRoutineSheet from '../components/AddToRoutineSheet'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -206,6 +209,7 @@ export default function ProductDetailScreen() {
   const [inventoryAdded, setInventoryAdded] = useState(false)
   const [saving, setSaving] = useState(false)
   const [showAllIngredients, setShowAllIngredients] = useState(false)
+  const [routineSheetOpen, setRoutineSheetOpen] = useState(false)
 
   useEffect(() => {
     if (!id) return
@@ -214,7 +218,7 @@ export default function ProductDetailScreen() {
     setError(null)
     fetchProductDetail(id)
       .then((data) => { if (!cancelled) setProduct(data) })
-      .catch((err) => { if (!cancelled) setError(err.message) })
+      .catch((err) => { if (!cancelled) { setError(err.message); toast.error(err.message ?? 'Failed to load product') } })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
   }, [id])
@@ -317,7 +321,7 @@ export default function ProductDetailScreen() {
         <div className="pointer-events-none absolute -top-10 -left-20 h-40 w-40 rounded-full bg-[#f4cbc0]/30 blur-2xl" />
 
         {/* Top bar */}
-        <div className="relative z-10 flex items-center justify-between px-4 pt-[env(safe-area-inset-top,12px)] pb-2">
+        <div className="relative z-10 flex items-center justify-between px-4 pt-[calc(env(safe-area-inset-top,12px)+8px)] pb-2">
           <button
             onClick={() => navigate(-1)}
             className="grid h-10 w-10 place-items-center rounded-full bg-white/70 backdrop-blur-md shadow-sm active:scale-95 transition-transform"
@@ -598,7 +602,7 @@ export default function ProductDetailScreen() {
       </div>
 
       {/* ━━━ Sticky Action Bar ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-      <div className="fixed bottom-0 left-0 right-0 z-30 bg-gradient-to-t from-white via-white/98 to-white/0 px-4 pb-[env(safe-area-inset-bottom,10px)] pt-5">
+      <div className="fixed bottom-0 left-0 right-0 z-30 bg-gradient-to-t from-white via-white/98 to-white/0 px-4 pb-[calc(env(safe-area-inset-bottom,10px)+6px)] pt-5">
         <div className="flex gap-2.5">
           <button
             className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#ee886e] to-[#e8725a] py-3.5 text-[14px] font-bold text-white shadow-lg shadow-[#ee886e]/25 active:scale-[0.98] transition-transform"
@@ -624,8 +628,26 @@ export default function ProductDetailScreen() {
               <Plus className="h-5 w-5 text-[#71717a]" />
             )}
           </button>
+          <button
+            className="grid h-[52px] w-[52px] shrink-0 place-items-center rounded-2xl border-2 border-[#ede8e6] bg-white transition-all active:scale-95 hover:border-[#ee886e]/40"
+            onClick={() => setRoutineSheetOpen(true)}
+            disabled={!userId}
+          >
+            <AlarmClock className="h-5 w-5 text-[#71717a]" />
+          </button>
         </div>
       </div>
+
+      {/* ━━━ Add to Routine Sheet ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+      {userId && id && product && (
+        <AddToRoutineSheet
+          open={routineSheetOpen}
+          onOpenChange={setRoutineSheetOpen}
+          userId={userId}
+          productId={id}
+          productName={product.name ?? 'This product'}
+        />
+      )}
     </main>
   )
 }

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { toast } from 'sonner'
 import { ScreenFrame } from './shared'
 import AppleAuthButton from '../components/ui/apple-auth-button'
 import GoogleAuthButton from '../components/ui/google-auth-button'
@@ -30,6 +31,7 @@ function SignInScreen() {
       navigate('/home', { replace: true })
     } catch {
       setAuthStatus('Apple ile giris basarisiz oldu.')
+      toast.error('Apple ile giriş başarısız oldu')
     }
   }
 
@@ -46,6 +48,7 @@ function SignInScreen() {
       navigate('/home', { replace: true })
     } catch {
       setAuthStatus('Google ile giris basarisiz oldu.')
+      toast.error('Google ile giriş başarısız oldu')
     }
   }
 

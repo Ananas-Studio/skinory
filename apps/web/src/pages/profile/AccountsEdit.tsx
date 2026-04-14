@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { toast } from 'sonner'
 import { ArrowLeft, Loader2, Trash2 } from '@skinory/ui/icons'
 import { Button } from '@skinory/ui/components/button'
 import { useAuth } from '../../contexts/auth-context'
@@ -25,7 +26,7 @@ function AccountsEdit() {
       .then((data) => {
         if (!cancelled) setConnections(data.connections)
       })
-      .catch(console.error)
+      .catch((err) => { console.error(err); toast.error(err instanceof Error ? err.message : 'Failed to load connections') })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
   }, [userId])
@@ -38,6 +39,7 @@ function AccountsEdit() {
       setConnections((prev) => prev.filter((c) => c.provider !== provider))
     } catch (err) {
       console.error('Remove failed', err)
+      toast.error(err instanceof Error ? err.message : 'Failed to remove connection')
     } finally {
       setRemoving(null)
     }
