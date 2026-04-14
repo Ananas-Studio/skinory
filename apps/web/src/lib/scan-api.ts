@@ -7,6 +7,17 @@ function headers(userId: string): HeadersInit {
   }
 }
 
+// ─── Error class ─────────────────────────────────────────────────────────────
+
+export class ApiError extends Error {
+  code: string
+  constructor(code: string, message: string) {
+    super(message)
+    this.name = 'ApiError'
+    this.code = code
+  }
+}
+
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 export interface EvaluationReason {
@@ -100,7 +111,10 @@ export async function resolveBarcode(
   const json = await res.json()
 
   if (!json.ok) {
-    throw new Error(json.error?.message ?? 'Barcode lookup failed')
+    throw new ApiError(
+      json.error?.code ?? 'UNKNOWN_ERROR',
+      json.error?.message ?? 'Barcode lookup failed',
+    )
   }
 
   return json.data
@@ -119,7 +133,10 @@ export async function evaluateProduct(
   const json = await res.json()
 
   if (!json.ok) {
-    throw new Error(json.error?.message ?? 'Evaluation failed')
+    throw new ApiError(
+      json.error?.code ?? 'UNKNOWN_ERROR',
+      json.error?.message ?? 'Evaluation failed',
+    )
   }
 
   return json.data

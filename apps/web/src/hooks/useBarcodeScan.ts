@@ -58,6 +58,10 @@ function classifyError(err: unknown): ScanError {
   return { type: 'scan_failed', message: msg }
 }
 
+// Module-level promise to track async scanner cleanup, preventing camera lock
+// when the component re-mounts before the previous destroy completes.
+let pendingCleanup: Promise<void> | null = null
+
 // ─── Hook ────────────────────────────────────────────────────────────────────
 
 export function useBarcodeScan(
@@ -98,6 +102,12 @@ export function useBarcodeScan(
 
     async function bootstrap() {
       try {
+        // Wait for previous scanner cleanup to release the camera.
+        if (pendingCleanup) {
+          await pendingCleanup
+          pendingCleanup = null
+        }
+
         // Check permission (non-blocking; falls back to 'prompt').
         const perm = await scanner.checkPermission()
         if (!mountedRef.current) return
@@ -154,7 +164,7 @@ export function useBarcodeScan(
 
     return () => {
       mountedRef.current = false
-      scanner.destroy()
+      pendingCleanup = scanner.destroy()
       scannerRef.current = null
     }
     // Intentionally depend only on stable mount-time values.

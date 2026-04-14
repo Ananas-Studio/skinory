@@ -44,7 +44,7 @@ export const SUBSCRIPTION_TIERS: Record<string, SubscriptionTier> = {
       ai_evaluation: 3,
       ai_advice: 5,
       ai_social_detect: 10,
-      scan_resolve: 20,
+      scan_resolve: 100,
       routine_generate: 10,
     },
   },

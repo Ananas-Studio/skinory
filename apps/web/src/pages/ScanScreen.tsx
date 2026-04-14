@@ -12,10 +12,11 @@ import {
   RefreshCw,
   ScanBarcode,
   ShieldAlert,
+  Zap,
 } from '@skinory/ui/icons'
 import { IconButton, PrimaryButton, SecondaryButton } from './shared'
 import { useBarcodeScan } from '../hooks/useBarcodeScan'
-import { resolveBarcode, evaluateProduct, type LookupResult } from '../lib/scan-api'
+import { resolveBarcode, evaluateProduct, ApiError, type LookupResult } from '../lib/scan-api'
 import { useAuth } from '../contexts/auth-context'
 
 const SCANNER_CONTAINER_ID = 'barcode-scanner'
@@ -27,6 +28,7 @@ type ScanPhase =
   | 'found'
   | 'not_found'
   | 'needs_ingredients'
+  | 'usage_limit'
   | 'error'
 
 function ScanScreen() {
@@ -54,6 +56,12 @@ function ScanScreen() {
         const lookup = await resolveBarcode(userId, result.text, result.format)
         setLookupResult(lookup)
 
+        // Product truly not found — source is 'not_found'
+        if (lookup.product.source === 'not_found') {
+          setPhase('not_found')
+          return
+        }
+
         if (lookup.needsIngredients) {
           setPhase('needs_ingredients')
           return
@@ -75,12 +83,17 @@ function ScanScreen() {
         const msg = err instanceof Error ? err.message : 'Failed to look up barcode'
         setErrorMessage(msg)
         toast.error(msg)
-        setPhase('not_found')
+
+        if (err instanceof ApiError && err.code === 'USAGE_LIMIT_EXCEEDED') {
+          setPhase('usage_limit')
+        } else {
+          setPhase('error')
+        }
       } finally {
         processingRef.current = false
       }
     },
-    [navigate],
+    [navigate, userId],
   )
 
   const {
@@ -276,7 +289,7 @@ function ScanScreen() {
             <PackageSearch size={36} className="text-[#71717a]" />
             <p className="text-center text-[16px] font-medium text-[#18181b]">Product Not Found</p>
             <p className="text-center text-[13px] leading-[18px] text-[#71717a]">
-              {errorMessage || "We couldn't find this product in our database."}
+              We couldn't find this product in our database.
             </p>
             <div className="mt-1 flex w-full gap-2">
               <SecondaryButton onClick={handleRetry} className="flex-1 min-h-10 text-[13px]">
@@ -287,6 +300,22 @@ function ScanScreen() {
                 Enter Manually
               </PrimaryButton>
             </div>
+          </div>
+        )}
+
+        {phase === 'usage_limit' && (
+          <div className="flex w-full flex-col items-center gap-3 rounded-2xl bg-white/95 p-5 backdrop-blur-sm">
+            <div className="grid size-12 place-items-center rounded-xl bg-[#fef4e1]">
+              <Zap size={24} className="text-[#b16900]" />
+            </div>
+            <p className="text-center text-[16px] font-medium text-[#18181b]">Scan Limit Reached</p>
+            <p className="text-center text-[13px] leading-[18px] text-[#71717a]">
+              You've reached your monthly scan limit. Upgrade your plan for unlimited scans.
+            </p>
+            <SecondaryButton onClick={() => navigate(-1)} className="mt-1 w-full min-h-10 text-[13px]">
+              <ArrowLeft size={14} />
+              Go Back
+            </SecondaryButton>
           </div>
         )}
 
