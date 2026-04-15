@@ -32,23 +32,47 @@ const EMPTY_PRODUCT: EcommerceProduct = {
 
 // ─── User-Agent rotation ─────────────────────────────────────────────────────
 
-const USER_AGENTS = [
+const BROWSER_USER_AGENTS = [
   "Mozilla/5.0 (Linux; Android 14; SM-S928B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/537.36",
   "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1",
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
 ]
 
+// Social media / search engine crawler UAs — sites typically serve full HTML to these
+const CRAWLER_USER_AGENTS = [
+  "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)",
+  "Mozilla/5.0 (Linux; Android 6.0.1; Nexus 5X Build/MMB29P) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/537.36 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)",
+  "facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)",
+  "Mozilla/5.0 (compatible; Bingbot/2.0; +http://www.bing.com/bingbot.htm)",
+]
+
 function randomUA(): string {
-  return USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)]!
+  return BROWSER_USER_AGENTS[Math.floor(Math.random() * BROWSER_USER_AGENTS.length)]!
+}
+
+function randomCrawlerUA(): string {
+  return CRAWLER_USER_AGENTS[Math.floor(Math.random() * CRAWLER_USER_AGENTS.length)]!
 }
 
 // ─── Fetch helpers ───────────────────────────────────────────────────────────
 
 const FETCH_TIMEOUT_MS = 15_000
-const MAX_RETRIES = 2
+const MAX_RETRIES = 1  // Keep retries low to speed up fallback to search strategy
 
-function buildHeaders(): Record<string, string> {
+interface FetchOptions {
+  useCrawlerUA?: boolean
+}
+
+function buildHeaders(opts?: FetchOptions): Record<string, string> {
+  if (opts?.useCrawlerUA) {
+    return {
+      "User-Agent": randomCrawlerUA(),
+      "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      "Accept-Language": "en-US,en;q=0.9",
+      "Accept-Encoding": "identity",
+    }
+  }
   return {
     "User-Agent": randomUA(),
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
@@ -63,7 +87,13 @@ function buildHeaders(): Record<string, string> {
   }
 }
 
-async function fetchPage(url: string): Promise<string | null> {
+function isBotDetectionPage(html: string): boolean {
+  if (html.length < 5000) return true
+  const lower = html.toLowerCase()
+  return lower.includes("captcha") || lower.includes("robot check") || lower.includes("automated access")
+}
+
+async function fetchPage(url: string, opts?: FetchOptions): Promise<string | null> {
   let lastError: unknown
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     try {
@@ -72,7 +102,7 @@ async function fetchPage(url: string): Promise<string | null> {
       const res = await fetch(url, {
         signal: controller.signal,
         redirect: "follow",
-        headers: buildHeaders(),
+        headers: buildHeaders(opts),
       })
       clearTimeout(timer)
       if (!res.ok) {
@@ -81,8 +111,7 @@ async function fetchPage(url: string): Promise<string | null> {
         continue
       }
       const html = await res.text()
-      // Detect bot/CAPTCHA pages (very small HTML or known markers)
-      if (html.length < 5000 || html.includes("captcha") || html.includes("robot check")) {
+      if (isBotDetectionPage(html)) {
         console.warn(`[ecommerce-content-reader] Bot detection page for ${url} (attempt ${attempt + 1}, size=${html.length})`)
         lastError = new Error("Bot detection page received")
         if (attempt < MAX_RETRIES) {
@@ -350,10 +379,10 @@ function extractWatsons(html: string, url: string): EcommerceProduct {
   return product
 }
 
-// ─── Amazon multi-domain fallback ────────────────────────────────────────────
-// Amazon aggressively blocks datacenter IPs on some regional domains.
-// When a fetch fails or returns a bot-detection page, retry with alternate
-// Amazon domains using the same ASIN.
+// ─── Amazon fallback via search page ─────────────────────────────────────────
+// Amazon product pages aggressively block datacenter IPs. Search result pages
+// are far less restrictive. When the product page is blocked, search for the
+// ASIN and extract product info from the search results HTML.
 
 const AMAZON_FALLBACK_DOMAINS = [
   "www.amazon.com",
@@ -367,24 +396,88 @@ function extractAsin(url: string): string | null {
   return m?.[1] ?? null
 }
 
-async function fetchAmazonWithFallback(originalUrl: string): Promise<string | null> {
-  // Try the original URL first
-  const html = await fetchPage(originalUrl)
-  if (html) return html
+// ─── Amazon search-page scraping ─────────────────────────────────────────────
 
-  // Extract ASIN and try alternate domains
-  const asin = extractAsin(originalUrl)
-  if (!asin) return null
+function extractAmazonSearchResult(html: string, asin: string, url: string): EcommerceProduct | null {
+  const product: EcommerceProduct = { ...EMPTY_PRODUCT, url }
 
-  console.warn(`[ecommerce-content-reader] Primary Amazon fetch failed, trying fallback domains for ASIN ${asin}`)
-  for (const domain of AMAZON_FALLBACK_DOMAINS) {
-    const fallbackUrl = `https://${domain}/dp/${asin}`
-    if (originalUrl.includes(domain)) continue // skip if same as original
-    const fallbackHtml = await fetchPage(fallbackUrl)
-    if (fallbackHtml) return fallbackHtml
+  const h2Regex = new RegExp(
+    `href="[^"]*/${asin}/[^"]*"[\\s\\S]*?<h2[^>]*aria-label="([^"]+)"`,
+    "i"
+  )
+  const h2Match = html.match(h2Regex)
+  if (h2Match?.[1]) {
+    product.name = decodeHtmlEntities(h2Match[1])
   }
 
-  return null
+  if (!product.name) {
+    const spanRegex = new RegExp(
+      `/${asin}/[\\s\\S]*?<span[^>]*class="[^"]*a-text-normal[^"]*"[^>]*>([\\s\\S]*?)</span>`,
+      "i"
+    )
+    const spanMatch = html.match(spanRegex)
+    if (spanMatch?.[1]) {
+      product.name = decodeHtmlEntities(stripHtmlTags(spanMatch[1]).trim())
+    }
+  }
+
+  if (!product.name) return null
+
+  const imgRegex = new RegExp(
+    `data-image-source-density="1"[^>]*src="(https://m\\.media-amazon\\.com/images/I/[^"]+)"`,
+    "i"
+  )
+  const imgMatch = html.match(imgRegex)
+  if (imgMatch?.[1]) {
+    product.imageUrl = imgMatch[1].replace(/_AC_[^.]+\./, "_AC_SL1500_.")
+  }
+
+  const priceWhole = html.match(/a-price-whole">(\d[\d,]*)</)
+  const priceFraction = html.match(/a-price-fraction">(\d+)</)
+  if (priceWhole?.[1]) {
+    const fraction = priceFraction?.[1] ?? "00"
+    product.price = `${priceWhole[1].replace(/,/g, "")}.${fraction}`
+  }
+
+  const brandRegex = new RegExp(
+    `/${asin}/[\\s\\S]*?<span[^>]*class="[^"]*a-size-base-plus[^"]*"[^>]*>([^<]+)</span>`,
+    "i"
+  )
+  const brandMatch = html.match(brandRegex)
+  if (brandMatch?.[1]) {
+    product.brand = decodeHtmlEntities(brandMatch[1].trim())
+  }
+
+  return product
+}
+
+// ─── Amazon fallback orchestrator ────────────────────────────────────────────
+
+async function fetchAmazonWithFallback(originalUrl: string): Promise<{ html: string | null; searchProduct: EcommerceProduct | null }> {
+  // Strategy 1: direct product page fetch
+  const html = await fetchPage(originalUrl)
+  if (html) return { html, searchProduct: null }
+
+  // Strategy 2: Amazon search page scraping (less protected than product pages)
+  const asin = extractAsin(originalUrl)
+  if (!asin) return { html: null, searchProduct: null }
+
+  console.warn(`[ecommerce-content-reader] Direct fetch blocked, trying Amazon search pages for ASIN ${asin}`)
+  for (const domain of ["www.amazon.com", ...AMAZON_FALLBACK_DOMAINS]) {
+    if (domain === "www.amazon.com" || !originalUrl.includes(domain)) {
+      const searchUrl = `https://${domain}/s?k=${asin}`
+      const searchHtml = await fetchPage(searchUrl)
+      if (searchHtml) {
+        const searchProduct = extractAmazonSearchResult(searchHtml, asin, originalUrl)
+        if (searchProduct?.name) {
+          console.info(`[ecommerce-content-reader] Got product from ${domain} search: ${searchProduct.name}`)
+          return { html: null, searchProduct }
+        }
+      }
+    }
+  }
+
+  return { html: null, searchProduct: null }
 }
 
 // ─── Public API ──────────────────────────────────────────────────────────────
@@ -403,10 +496,24 @@ export async function readEcommerceProduct(
   platform: Platform,
   url: string,
 ): Promise<EcommerceProduct> {
-  // Amazon uses multi-domain fallback due to aggressive bot protection
-  const html = platform === "amazon"
-    ? await fetchAmazonWithFallback(url)
-    : await fetchPage(url)
+  if (platform === "amazon") {
+    // Amazon uses multi-strategy fallback: direct page → search results
+    const { html, searchProduct } = await fetchAmazonWithFallback(url)
+    if (searchProduct) {
+      // Got product from search results — already extracted
+      if (searchProduct.name) searchProduct.name = decodeHtmlEntities(searchProduct.name).trim()
+      if (searchProduct.brand) searchProduct.brand = decodeHtmlEntities(searchProduct.brand).trim()
+      return searchProduct
+    }
+    if (!html) return { ...EMPTY_PRODUCT, url }
+    const product = extractAmazon(html, url)
+    if (product.name) product.name = decodeHtmlEntities(product.name).trim()
+    if (product.brand) product.brand = decodeHtmlEntities(product.brand).trim()
+    if (product.description) product.description = decodeHtmlEntities(product.description).trim()
+    return product
+  }
+
+  const html = await fetchPage(url)
   if (!html) return { ...EMPTY_PRODUCT, url }
 
   const extractor = PLATFORM_EXTRACTORS[platform] ?? extractGeneric
