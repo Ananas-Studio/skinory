@@ -4,13 +4,13 @@
 
 export type Platform =
   | "instagram" | "tiktok" | "facebook"
-  | "amazon" | "trendyol" | "hepsiburada" | "watsons" | "gratis" | "sevil"
+  | "amazon" | "noon" | "trendyol" | "hepsiburada" | "watsons" | "gratis" | "sevil"
   | "unknown"
 
 export type ResourceType = "post" | "reel" | "video" | "story" | "product" | "unknown"
 
 const ECOMMERCE_PLATFORMS = new Set<Platform>([
-  "amazon", "trendyol", "hepsiburada", "watsons", "gratis", "sevil",
+  "amazon", "noon", "trendyol", "hepsiburada", "watsons", "gratis", "sevil",
 ])
 
 export function isEcommercePlatform(platform: Platform): boolean {
@@ -94,6 +94,18 @@ const PLATFORM_RULES: PlatformRule[] = [
     ],
   },
   {
+    platform: "noon",
+    hostPatterns: [
+      /(?:www\.)?noon\.com/i,
+    ],
+    resourceExtractors: [
+      // Product page: /uae-en/product-slug/N12345678A/p/
+      { pattern: /\/([NZ]\d{6,12}[A-Z]?)\/p\/?/, type: "product", idGroup: 1 },
+      // Direct product ID in path without /p/ suffix
+      { pattern: /\/([NZ]\d{6,12}[A-Z]?)\/?$/, type: "product", idGroup: 1 },
+    ],
+  },
+  {
     platform: "trendyol",
     hostPatterns: [/(?:www\.)?trendyol\.com/i, /ty\.gl/i],
     resourceExtractors: [
@@ -158,6 +170,8 @@ const TRACKING_PARAMS = new Set([
   "boutiqueId", "merchantId", "sav",
   // Hepsiburada
   "magession",
+  // Noon
+  "offer", "mp",
 ])
 
 function stripTrackingParams(url: URL): void {
