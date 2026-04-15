@@ -12,7 +12,22 @@ import {
 import { fetchScanHistory, type ScanHistoryItem } from '../lib/scan-api'
 import { addFavorite, fetchFavoriteIds, removeFavorite } from '../lib/favorites-api'
 import { fetchProducts, type ProductListItem } from '../lib/products-api'
+import { listInventoryItems } from '../lib/inventory-api'
+import { getRoutines } from '../lib/routine-api'
 import { useAuth } from '../contexts/auth-context'
+
+function formatRelativeTime(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime()
+  const minutes = Math.floor(diff / 60_000)
+  if (minutes < 1) return 'just now'
+  if (minutes < 60) return `${minutes}m ago`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours}h ago`
+  const days = Math.floor(hours / 24)
+  if (days === 1) return 'yesterday'
+  if (days < 30) return `${days}d ago`
+  return new Date(iso).toLocaleDateString()
+}
 
 const CATEGORY_FILTERS = [
   { label: 'All', value: undefined },
@@ -33,6 +48,8 @@ function HomeScreen() {
   const [historyTotal, setHistoryTotal] = useState(0)
   const [historyLoading, setHistoryLoading] = useState(true)
   const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set())
+  const [inventoryCount, setInventoryCount] = useState<number | null>(null)
+  const [routineUpdatedAt, setRoutineUpdatedAt] = useState<string | null>(null)
 
   // ─── Popular Products state ──────────────────────────────────────────────
   const [activeCategory, setActiveCategory] = useState<string | undefined>(undefined)
@@ -48,13 +65,23 @@ function HomeScreen() {
 
     const loadHistory = fetchScanHistory(userId, 10)
     const loadFavorites = fetchFavoriteIds(userId).catch(() => [] as string[])
+    const loadInventory = listInventoryItems(userId).catch(() => [])
+    const loadRoutines = getRoutines(userId).catch(() => [])
 
-    Promise.all([loadHistory, loadFavorites])
-      .then(([historyRes, favIds]) => {
+    Promise.all([loadHistory, loadFavorites, loadInventory, loadRoutines])
+      .then(([historyRes, favIds, inventory, routines]) => {
         if (cancelled) return
         setScanHistory(historyRes.scans)
         setHistoryTotal(historyRes.total)
         setFavoriteIds(new Set(favIds))
+        setInventoryCount(inventory.length)
+
+        if (routines.length > 0) {
+          const latest = routines.reduce((a, b) =>
+            new Date(a.updatedAt) >= new Date(b.updatedAt) ? a : b,
+          )
+          setRoutineUpdatedAt(latest.updatedAt)
+        }
       })
       .catch((e) => {
         toast.error(e instanceof Error ? e.message : 'Failed to load recent scans')
@@ -157,7 +184,11 @@ function HomeScreen() {
         <div className='p-4 pb-3 flex flex-row gap-6'>
           <div className='flex flex-col gap-2'>
             <p className='text-foreground text-2xl font-medium' style={{ letterSpacing: -0.6 }}>Welcome Back <span className='text-[#EE886E]'>{user?.fullName?.split(' ')[0] ?? 'there'}!</span></p>
-            <p className='text-muted-foreground text-sm leading-[100%]'>You own 6 products · Routine updated yesterday</p>
+            <p className='text-muted-foreground text-sm leading-[100%]'>
+              {inventoryCount !== null ? `You own ${inventoryCount} products` : ''}
+              {inventoryCount !== null && routineUpdatedAt ? ' · ' : ''}
+              {routineUpdatedAt ? `Routine updated ${formatRelativeTime(routineUpdatedAt)}` : ''}
+            </p>
           </div>
           <div className='flex flex-row gap-2.5'>
             <IconButton>
