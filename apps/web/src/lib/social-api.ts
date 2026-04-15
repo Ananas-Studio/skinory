@@ -15,14 +15,26 @@ export interface DetectedProduct {
   confidence: number
 }
 
+export interface EcommerceProductResult {
+  productId: string
+  name: string
+  brand: string | null
+  imageUrl: string | null
+  category: string
+  isNew: boolean
+  needsIngredients: boolean
+}
+
 export interface ScrapeResult {
   platform: string
   resourceType: string | null
+  isEcommerce: boolean
   preview: {
     text: string | null
     author: string | null
     thumbnail: string | null
   }
+  ecommerceProduct?: EcommerceProductResult | null
 }
 
 export interface DetectResult {

@@ -26,6 +26,7 @@ import {
   type ScrapeResult,
   type DetectedProduct,
   type EnrichedProduct,
+  type EcommerceProductResult,
 } from '../lib/social-api'
 
 // ─── Step status types ───────────────────────────────────────────────────────
@@ -38,6 +39,12 @@ const PLATFORM_COLORS: Record<string, string> = {
   instagram: 'bg-gradient-to-r from-[#833AB4] via-[#FD1D1D] to-[#F77737] text-white',
   tiktok: 'bg-black text-white',
   facebook: 'bg-[#1877F2] text-white',
+  amazon: 'bg-[#FF9900] text-black',
+  trendyol: 'bg-[#F27A1A] text-white',
+  hepsiburada: 'bg-[#FF6000] text-white',
+  watsons: 'bg-[#00A651] text-white',
+  gratis: 'bg-[#E30A17] text-white',
+  sevil: 'bg-[#1D1D1B] text-white',
   unknown: 'bg-gray-200 text-gray-700',
 }
 
@@ -138,6 +145,7 @@ function SocialScannerScreen() {
   const [scrapeData, setScrapeData] = useState<ScrapeResult | null>(null)
   const [detectedProducts, setDetectedProducts] = useState<DetectedProduct[]>([])
   const [enrichedProducts, setEnrichedProducts] = useState<EnrichedProduct[]>([])
+  const [ecommerceProduct, setEcommerceProduct] = useState<EcommerceProductResult | null>(null)
 
   // Errors
   const [scrapeError, setScrapeError] = useState<string | null>(null)
@@ -172,6 +180,7 @@ function SocialScannerScreen() {
     setScrapeData(null)
     setDetectedProducts([])
     setEnrichedProducts([])
+    setEcommerceProduct(null)
     setScrapeError(null)
     setDetectError(null)
     setEnrichError(null)
@@ -189,22 +198,33 @@ function SocialScannerScreen() {
     setEnrichStatus('idle')
     setDetectedProducts([])
     setEnrichedProducts([])
+    setEcommerceProduct(null)
 
     try {
       const data = await scrapeLink(userId, url.trim())
       setScrapeData(data)
       setScrapeStatus('done')
+
+      // E-commerce shortcut: product is already persisted by the API
+      if (data.isEcommerce && data.ecommerceProduct) {
+        setEcommerceProduct(data.ecommerceProduct)
+        // Skip detect/enrich steps — mark them as done
+        setDetectStatus('done')
+        setEnrichStatus('done')
+      }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Failed to read the social post'
+      const msg = err instanceof Error ? err.message : 'Failed to read the link'
       setScrapeError(msg)
       toast.error(msg)
       setScrapeStatus('error')
     }
   }, [url, userId])
 
-  // ── Step 2: Auto-detect when scrape succeeds ─────────────────────────
+  // ── Step 2: Auto-detect when scrape succeeds (social media only) ───
   useEffect(() => {
     if (scrapeStatus !== 'done' || !scrapeData?.preview.text) return
+    // Skip detect step for e-commerce links (already handled)
+    if (scrapeData.isEcommerce) return
 
     let cancelled = false
     setDetectStatus('loading')
@@ -281,7 +301,7 @@ function SocialScannerScreen() {
         {/* ── URL input ───────────────────────────────────────────── */}
         <div className="flex flex-col gap-2">
           <p className="text-sm text-muted-foreground">
-            Paste a link from Instagram, TikTok, or Facebook to detect skincare products.
+            Paste a link from Instagram, TikTok, Facebook, Amazon, Trendyol, Hepsiburada, or other beauty stores.
           </p>
           {aiUsage && (
             <div className="flex items-center gap-1.5">
@@ -296,7 +316,7 @@ function SocialScannerScreen() {
           <div className="flex gap-2">
             <Input
               ref={inputRef}
-              placeholder="https://www.instagram.com/p/..."
+              placeholder="https://www.amazon.com.tr/dp/... or social media link"
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && !isAnalyzing && handleAnalyze()}
@@ -338,9 +358,15 @@ function SocialScannerScreen() {
         {/* ── Progress steps ──────────────────────────────────────── */}
         {scrapeStatus !== 'idle' && (
           <div className="flex flex-col gap-2 rounded-lg border bg-gray-50/50 p-3">
-            <StepIndicator step={1} label="Reading post content" status={scrapeStatus} />
-            <StepIndicator step={2} label="Detecting products (AI)" status={detectStatus} />
-            <StepIndicator step={3} label="Enriching from databases" status={enrichStatus} />
+            {ecommerceProduct || scrapeData?.isEcommerce ? (
+              <StepIndicator step={1} label="Reading product page" status={scrapeStatus} />
+            ) : (
+              <>
+                <StepIndicator step={1} label="Reading post content" status={scrapeStatus} />
+                <StepIndicator step={2} label="Detecting products (AI)" status={detectStatus} />
+                <StepIndicator step={3} label="Enriching from databases" status={enrichStatus} />
+              </>
+            )}
           </div>
         )}
 
@@ -406,8 +432,49 @@ function SocialScannerScreen() {
           </div>
         )}
 
+        {/* ── E-commerce product result (shortcut) ──────────────────── */}
+        {ecommerceProduct && scrapeStatus === 'done' && (
+          <div className="flex flex-col gap-3">
+            <h3 className="text-sm font-semibold">Product Found</h3>
+            <div className="flex items-center gap-3 rounded-xl border p-3">
+              <img
+                src={ecommerceProduct.imageUrl ?? '/introduction-image.png'}
+                alt={ecommerceProduct.name}
+                className="h-14 w-14 shrink-0 rounded-lg bg-muted object-cover"
+              />
+              <div className="flex flex-1 flex-col gap-1 min-w-0">
+                <span className="text-sm font-medium leading-tight truncate">{ecommerceProduct.name}</span>
+                {ecommerceProduct.brand && (
+                  <span className="text-xs text-muted-foreground truncate">{ecommerceProduct.brand}</span>
+                )}
+                {ecommerceProduct.isNew && (
+                  <span className="inline-flex w-fit items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-medium text-blue-700">
+                    <Sparkles size={10} />
+                    New in database
+                  </span>
+                )}
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="shrink-0 gap-1 text-xs"
+                onClick={() => handleInspect(ecommerceProduct.productId)}
+              >
+                <ExternalLink size={12} />
+                Analyze
+              </Button>
+            </div>
+            {ecommerceProduct.needsIngredients && (
+              <p className="text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2">
+                💡 Ingredient list is missing. You can add it manually on the product page for a full analysis.
+              </p>
+            )}
+          </div>
+        )}
+
         {/* ── Enriched products (final results) ──────────────────── */}
-        {enrichStatus === 'done' && (
+        {enrichStatus === 'done' && !ecommerceProduct && (
           <div className="flex flex-col gap-3">
             {enrichedProducts.length > 0 ? (
               <>
@@ -470,9 +537,9 @@ function SocialScannerScreen() {
         )}
 
         {/* ── No text found after scrape ──────────────────────────── */}
-        {scrapeStatus === 'done' && !scrapeData?.preview.text && (
+        {scrapeStatus === 'done' && !scrapeData?.preview.text && !ecommerceProduct && (
           <p className="py-4 text-center text-sm text-muted-foreground">
-            Could not read text from this post. Try a different link.
+            Could not read content from this link. Try a different link.
           </p>
         )}
 
