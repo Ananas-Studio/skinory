@@ -33,10 +33,10 @@ const EMPTY_PRODUCT: EcommerceProduct = {
 // ─── User-Agent rotation ─────────────────────────────────────────────────────
 
 const USER_AGENTS = [
+  "Mozilla/5.0 (Linux; Android 14; SM-S928B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/537.36",
+  "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1",
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:128.0) Gecko/20100101 Firefox/128.0",
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15",
 ]
 
 function randomUA(): string {
@@ -45,8 +45,23 @@ function randomUA(): string {
 
 // ─── Fetch helpers ───────────────────────────────────────────────────────────
 
-const FETCH_TIMEOUT_MS = 10_000
+const FETCH_TIMEOUT_MS = 15_000
 const MAX_RETRIES = 2
+
+function buildHeaders(): Record<string, string> {
+  return {
+    "User-Agent": randomUA(),
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Accept-Encoding": "identity",
+    "Cache-Control": "no-cache",
+    "Sec-Fetch-Dest": "document",
+    "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-Site": "none",
+    "Sec-Fetch-User": "?1",
+    "Upgrade-Insecure-Requests": "1",
+  }
+}
 
 async function fetchPage(url: string): Promise<string | null> {
   let lastError: unknown
@@ -57,24 +72,29 @@ async function fetchPage(url: string): Promise<string | null> {
       const res = await fetch(url, {
         signal: controller.signal,
         redirect: "follow",
-        headers: {
-          "User-Agent": randomUA(),
-          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-          "Accept-Language": "tr-TR,tr;q=0.9,en-US;q=0.8,en;q=0.7",
-          "Accept-Encoding": "identity",
-          "Cache-Control": "no-cache",
-        },
+        headers: buildHeaders(),
       })
       clearTimeout(timer)
       if (!res.ok) {
         lastError = new Error(`HTTP ${res.status}`)
+        console.warn(`[ecommerce-content-reader] HTTP ${res.status} for ${url} (attempt ${attempt + 1})`)
         continue
       }
-      return await res.text()
+      const html = await res.text()
+      // Detect bot/CAPTCHA pages (very small HTML or known markers)
+      if (html.length < 5000 || html.includes("captcha") || html.includes("robot check")) {
+        console.warn(`[ecommerce-content-reader] Bot detection page for ${url} (attempt ${attempt + 1}, size=${html.length})`)
+        lastError = new Error("Bot detection page received")
+        if (attempt < MAX_RETRIES) {
+          await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)))
+        }
+        continue
+      }
+      return html
     } catch (err) {
       lastError = err
       if (attempt < MAX_RETRIES) {
-        await new Promise((r) => setTimeout(r, 600 * (attempt + 1)))
+        await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)))
       }
     }
   }
@@ -330,6 +350,43 @@ function extractWatsons(html: string, url: string): EcommerceProduct {
   return product
 }
 
+// ─── Amazon multi-domain fallback ────────────────────────────────────────────
+// Amazon aggressively blocks datacenter IPs on some regional domains.
+// When a fetch fails or returns a bot-detection page, retry with alternate
+// Amazon domains using the same ASIN.
+
+const AMAZON_FALLBACK_DOMAINS = [
+  "www.amazon.com",
+  "www.amazon.co.uk",
+  "www.amazon.de",
+  "www.amazon.com.tr",
+]
+
+function extractAsin(url: string): string | null {
+  const m = url.match(/\/(?:dp|gp\/product|gp\/aw\/d)\/([A-Z0-9]{10})/)
+  return m?.[1] ?? null
+}
+
+async function fetchAmazonWithFallback(originalUrl: string): Promise<string | null> {
+  // Try the original URL first
+  const html = await fetchPage(originalUrl)
+  if (html) return html
+
+  // Extract ASIN and try alternate domains
+  const asin = extractAsin(originalUrl)
+  if (!asin) return null
+
+  console.warn(`[ecommerce-content-reader] Primary Amazon fetch failed, trying fallback domains for ASIN ${asin}`)
+  for (const domain of AMAZON_FALLBACK_DOMAINS) {
+    const fallbackUrl = `https://${domain}/dp/${asin}`
+    if (originalUrl.includes(domain)) continue // skip if same as original
+    const fallbackHtml = await fetchPage(fallbackUrl)
+    if (fallbackHtml) return fallbackHtml
+  }
+
+  return null
+}
+
 // ─── Public API ──────────────────────────────────────────────────────────────
 
 const PLATFORM_EXTRACTORS: Partial<
@@ -346,7 +403,10 @@ export async function readEcommerceProduct(
   platform: Platform,
   url: string,
 ): Promise<EcommerceProduct> {
-  const html = await fetchPage(url)
+  // Amazon uses multi-domain fallback due to aggressive bot protection
+  const html = platform === "amazon"
+    ? await fetchAmazonWithFallback(url)
+    : await fetchPage(url)
   if (!html) return { ...EMPTY_PRODUCT, url }
 
   const extractor = PLATFORM_EXTRACTORS[platform] ?? extractGeneric
