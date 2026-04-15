@@ -117,14 +117,6 @@ export function useBarcodeScan(
         await scanner.init(containerId, { formats, facingMode: 'environment' })
         if (!mountedRef.current) return
 
-        // Enumerate cameras (requires permission prompt on first call).
-        try {
-          const cams = await scanner.getCameras()
-          if (mountedRef.current) setCameras(cams)
-        } catch {
-          // Camera enumeration can fail if permission not yet granted – non-fatal.
-        }
-
         // Wire up detection callback with debounce.
         scanner.onDetected((scanResult) => {
           const now = Date.now()
@@ -146,8 +138,16 @@ export function useBarcodeScan(
           await scanner.start()
           if (mountedRef.current) {
             setScanning(true)
-            // Re-check permission after start succeeds.
             setPermissionStatus('granted')
+          }
+
+          // Enumerate cameras after start — permission is now granted so
+          // enumerateDevices returns full labels (required on iOS Safari).
+          try {
+            const cams = await scanner.getCameras()
+            if (mountedRef.current) setCameras(cams)
+          } catch {
+            // Non-fatal
           }
         }
       } catch (err) {
