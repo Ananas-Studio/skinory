@@ -52,9 +52,36 @@ setup() {
     read -rsp "Enter your OpenAI API key: " OPENAI_API_KEY
     echo
   fi
+
+  # Check if DB server already exists to avoid password mismatch
+  local db_exists
+  db_exists=$(az postgres flexible-server list -g "$RESOURCE_GROUP" --query "[0].name" -o tsv 2>/dev/null || echo "")
+
   if [ -z "${DB_PASSWORD:-}" ]; then
-    DB_PASSWORD="Sk1n$(openssl rand -hex 6)#1"
-    warn "Generated DB password — save it: $DB_PASSWORD"
+    if [ -n "$db_exists" ]; then
+      warn "PostgreSQL server '$db_exists' already exists."
+      warn "You MUST provide the existing DB password to avoid auth mismatch."
+      read -rsp "Enter your existing DB password: " DB_PASSWORD
+      echo
+      if [ -z "$DB_PASSWORD" ]; then
+        err "DB password is required when server already exists."
+        exit 1
+      fi
+    else
+      DB_PASSWORD="Sk1n$(openssl rand -hex 6)#1"
+      warn "Generated DB password — save it securely: $DB_PASSWORD"
+    fi
+  fi
+
+  # When DB exists, sync the password to ensure Bicep connection string matches
+  if [ -n "$db_exists" ]; then
+    log "Syncing DB password to existing server '$db_exists'..."
+    az postgres flexible-server update \
+      --resource-group "$RESOURCE_GROUP" \
+      --name "$db_exists" \
+      --admin-password "$DB_PASSWORD" \
+      -o none
+    ok "DB password synced"
   fi
 
   log "Deploying base infrastructure (ACR + PostgreSQL + Environment)..."
@@ -126,9 +153,30 @@ deploy_apps() {
     read -rsp "Enter your OpenAI API key: " OPENAI_API_KEY
     echo
   fi
+
+  # Check if DB server exists — require existing password, never generate a new one here
+  local db_exists
+  db_exists=$(az postgres flexible-server list -g "$RESOURCE_GROUP" --query "[0].name" -o tsv 2>/dev/null || echo "")
+
   if [ -z "${DB_PASSWORD:-}" ]; then
-    read -rsp "Enter your DB password (from setup): " DB_PASSWORD
-    echo
+    if [ -n "$db_exists" ]; then
+      read -rsp "Enter your existing DB password: " DB_PASSWORD
+      echo
+    else
+      err "No DB server found. Run './infra/deploy.sh setup' first."
+      exit 1
+    fi
+  fi
+
+  # Sync password to DB before deploying apps to ensure connection string matches
+  if [ -n "$db_exists" ]; then
+    log "Syncing DB password to server '$db_exists'..."
+    az postgres flexible-server update \
+      --resource-group "$RESOURCE_GROUP" \
+      --name "$db_exists" \
+      --admin-password "$DB_PASSWORD" \
+      -o none
+    ok "DB password synced"
   fi
 
   az deployment group create \
