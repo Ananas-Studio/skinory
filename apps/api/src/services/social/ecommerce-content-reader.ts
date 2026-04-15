@@ -474,6 +474,134 @@ function extractWatsons(html: string, url: string): EcommerceProduct {
   return product
 }
 
+// ─── Sephora extractor ──────────────────────────────────────────────────────
+
+function extractSephora(html: string, url: string): EcommerceProduct {
+  const product = extractGeneric(html, url)
+
+  // Sephora uses product:brand meta tag
+  if (!product.brand) {
+    const brandMeta = extractMeta(html, "product:brand")
+    if (brandMeta) product.brand = brandMeta
+  }
+
+  // Sephora may embed JSON-LD Product schema
+  const jsonLdMatch = html.match(/<script[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gi)
+  if (jsonLdMatch) {
+    for (const block of jsonLdMatch) {
+      try {
+        const content = block.replace(/<\/?script[^>]*>/gi, "")
+        const data = JSON.parse(content) as Record<string, unknown>
+        if (data["@type"] === "Product") {
+          if (!product.name && typeof data.name === "string") product.name = data.name
+          if (!product.brand) {
+            const brand = data.brand as Record<string, unknown> | undefined
+            if (typeof brand?.name === "string") product.brand = brand.name
+          }
+          if (!product.description && typeof data.description === "string") product.description = data.description
+          if (!product.imageUrl && typeof data.image === "string") product.imageUrl = data.image
+          break
+        }
+      } catch {
+        // Skip malformed JSON-LD
+      }
+    }
+  }
+
+  return product
+}
+
+/** Sephora.com uses Akamai — try crawler UA first, fallback to URL slug */
+async function fetchSephoraWithFallback(
+  originalUrl: string,
+): Promise<{ html: string | null; slugProduct: EcommerceProduct | null }> {
+  // Strategy 1: crawler UA (Sephora AE/ME may respond)
+  const html = await fetchPage(originalUrl, { useCrawlerUA: true })
+  if (html && !isBotDetectionPage(html)) return { html, slugProduct: null }
+
+  // Strategy 2: browser UA
+  const htmlBrowser = await fetchPage(originalUrl)
+  if (htmlBrowser && !isBotDetectionPage(htmlBrowser)) return { html: htmlBrowser, slugProduct: null }
+
+  // Strategy 3: extract from URL slug
+  console.warn(`[ecommerce-content-reader] Sephora HTML fetch blocked, falling back to URL slug extraction`)
+  const slugProduct = extractProductFromSlug(originalUrl)
+  if (slugProduct.name) return { html: null, slugProduct }
+
+  return { html: null, slugProduct: null }
+}
+
+// ─── Lookfantastic extractor ────────────────────────────────────────────────
+
+function extractLookfantastic(html: string, url: string): EcommerceProduct {
+  const product = extractGeneric(html, url)
+
+  // THG platform uses product:brand
+  if (!product.brand) {
+    const brandMeta = extractMeta(html, "product:brand")
+    if (brandMeta) product.brand = brandMeta
+  }
+
+  // THG also uses JSON-LD
+  const jsonLdMatch = html.match(/<script[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gi)
+  if (jsonLdMatch) {
+    for (const block of jsonLdMatch) {
+      try {
+        const content = block.replace(/<\/?script[^>]*>/gi, "")
+        const data = JSON.parse(content) as Record<string, unknown>
+        if (data["@type"] === "Product") {
+          if (!product.name && typeof data.name === "string") product.name = data.name
+          if (!product.brand) {
+            const brand = data.brand as Record<string, unknown> | undefined
+            if (typeof brand?.name === "string") product.brand = brand.name
+          }
+          if (!product.imageUrl && typeof data.image === "string") product.imageUrl = data.image
+          break
+        }
+      } catch {
+        // Skip malformed JSON-LD
+      }
+    }
+  }
+
+  return product
+}
+
+// ─── Namshi extractor ───────────────────────────────────────────────────────
+
+function extractNamshi(html: string, url: string): EcommerceProduct {
+  const product = extractGeneric(html, url)
+
+  // Namshi (noon-owned) uses __NEXT_DATA__ similar to noon
+  const nextDataMatch = html.match(/<script[^>]*id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/)
+  if (nextDataMatch?.[1]) {
+    try {
+      const nextData = JSON.parse(nextDataMatch[1]) as Record<string, unknown>
+      const props = nextData.props as Record<string, unknown> | undefined
+      const pageProps = props?.pageProps as Record<string, unknown> | undefined
+      const productData = pageProps?.product as Record<string, unknown> | undefined
+
+      if (productData) {
+        if (typeof productData.name === "string" && productData.name) product.name = productData.name
+        if (typeof productData.brand === "string" && productData.brand) product.brand = productData.brand
+        if (typeof productData.description === "string" && productData.description) {
+          product.description = productData.description
+        }
+      }
+    } catch {
+      // Malformed __NEXT_DATA__
+    }
+  }
+
+  // Fallback: product:brand meta
+  if (!product.brand) {
+    const brandMeta = extractMeta(html, "product:brand")
+    if (brandMeta) product.brand = brandMeta
+  }
+
+  return product
+}
+
 function extractNoon(html: string, url: string): EcommerceProduct {
   const product = extractGeneric(html, url)
 
@@ -735,6 +863,9 @@ const PLATFORM_EXTRACTORS: Partial<
   hepsiburada: extractHepsiburada,
   watsons: extractWatsons,
   noon: extractNoon,
+  sephora: extractSephora,
+  lookfantastic: extractLookfantastic,
+  namshi: extractNamshi,
   // gratis and sevil use generic extraction
 }
 
@@ -785,6 +916,38 @@ export async function readEcommerceProduct(
     }
     if (!html) return { ...EMPTY_PRODUCT, url }
     const product = extractNoon(html, url)
+    if (product.name) product.name = decodeHtmlEntities(product.name).trim()
+    if (product.brand) product.brand = decodeHtmlEntities(product.brand).trim()
+    if (product.description) product.description = decodeHtmlEntities(product.description).trim()
+    return product
+  }
+
+  if (platform === "sephora") {
+    // Sephora.com/.com.tr use Akamai — try HTML, fallback to URL slug
+    const { html, slugProduct } = await fetchSephoraWithFallback(url)
+    if (slugProduct) {
+      if (slugProduct.name) slugProduct.name = decodeHtmlEntities(slugProduct.name).trim()
+      if (slugProduct.brand) slugProduct.brand = decodeHtmlEntities(slugProduct.brand).trim()
+      return slugProduct
+    }
+    if (!html) return { ...EMPTY_PRODUCT, url }
+    const product = extractSephora(html, url)
+    if (product.name) product.name = decodeHtmlEntities(product.name).trim()
+    if (product.brand) product.brand = decodeHtmlEntities(product.brand).trim()
+    if (product.description) product.description = decodeHtmlEntities(product.description).trim()
+    return product
+  }
+
+  if (platform === "namshi") {
+    // Namshi (noon-owned) may block from some IPs — try crawler UA first
+    const html = await fetchPage(url, { useCrawlerUA: true }) ?? await fetchPage(url)
+    if (!html || isBotDetectionPage(html)) {
+      // Fallback to URL slug extraction
+      const slugProduct = extractProductFromSlug(url)
+      if (slugProduct.name) return slugProduct
+      return { ...EMPTY_PRODUCT, url }
+    }
+    const product = extractNamshi(html, url)
     if (product.name) product.name = decodeHtmlEntities(product.name).trim()
     if (product.brand) product.brand = decodeHtmlEntities(product.brand).trim()
     if (product.description) product.description = decodeHtmlEntities(product.description).trim()

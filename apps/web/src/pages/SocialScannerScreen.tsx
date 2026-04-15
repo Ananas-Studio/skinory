@@ -43,6 +43,9 @@ const PLATFORM_COLORS: Record<string, string> = {
   trendyol: 'bg-[#F27A1A] text-white',
   hepsiburada: 'bg-[#FF6000] text-white',
   noon: 'bg-[#FEEE00] text-black',
+  sephora: 'bg-black text-white',
+  lookfantastic: 'bg-[#E6007E] text-white',
+  namshi: 'bg-[#333333] text-white',
   watsons: 'bg-[#00A651] text-white',
   gratis: 'bg-[#E30A17] text-white',
   sevil: 'bg-[#1D1D1B] text-white',
@@ -302,7 +305,7 @@ function SocialScannerScreen() {
         {/* ── URL input ───────────────────────────────────────────── */}
         <div className="flex flex-col gap-2">
           <p className="text-sm text-muted-foreground">
-            Paste a link from Instagram, TikTok, Facebook, Amazon, Trendyol, Hepsiburada, Noon, or other beauty stores.
+            Paste a link from Instagram, TikTok, Amazon, Trendyol, Hepsiburada, Sephora, Noon, Lookfantastic, Namshi, or other beauty stores.
           </p>
           {aiUsage && (
             <div className="flex items-center gap-1.5">

@@ -5,12 +5,14 @@
 export type Platform =
   | "instagram" | "tiktok" | "facebook"
   | "amazon" | "noon" | "trendyol" | "hepsiburada" | "watsons" | "gratis" | "sevil"
+  | "sephora" | "lookfantastic" | "namshi"
   | "unknown"
 
 export type ResourceType = "post" | "reel" | "video" | "story" | "product" | "unknown"
 
 const ECOMMERCE_PLATFORMS = new Set<Platform>([
   "amazon", "noon", "trendyol", "hepsiburada", "watsons", "gratis", "sevil",
+  "sephora", "lookfantastic", "namshi",
 ])
 
 export function isEcommercePlatform(platform: Platform): boolean {
@@ -107,7 +109,7 @@ const PLATFORM_RULES: PlatformRule[] = [
   },
   {
     platform: "trendyol",
-    hostPatterns: [/(?:www\.)?trendyol\.com/i, /ty\.gl/i],
+    hostPatterns: [/(?:www\.)?trendyol\.com/i, /(?:www\.)?trendyol\.ar/i, /ty\.gl/i],
     resourceExtractors: [
       { pattern: /-p-(\d+)/, type: "product", idGroup: 1 },
       // Short link fallback
@@ -152,6 +154,53 @@ const PLATFORM_RULES: PlatformRule[] = [
       { pattern: /\/([a-z0-9][\w-]+)(?:\?|$)/i, type: "product", idGroup: 1 },
     ],
   },
+  {
+    platform: "sephora",
+    hostPatterns: [
+      // Sephora global + regional domains
+      /(?:www\.)?sephora\.com/i,
+      /(?:www\.)?sephora\.com\.tr/i,
+      /(?:www\.)?sephora\.ae/i,
+      /(?:www\.)?sephora\.sa/i,
+      /(?:www\.)?sephora\.me/i,
+      /(?:www\.)?sephora\.co\.[a-z]{2}/i,
+      /(?:www\.)?sephora\.[a-z]{2}/i,
+    ],
+    resourceExtractors: [
+      // sephora.com: /product/product-name-PXXXXXX
+      { pattern: /\/product\/[^?#]*-?(P\d{5,})/, type: "product", idGroup: 1 },
+      // sephora.ae/en/p/product-name-PXXXXXXX.html
+      { pattern: /\/p\/[^?#]*-?(P\d{5,})\.html/, type: "product", idGroup: 1 },
+      // Generic /p/ path without .html
+      { pattern: /\/p\/([^/?#]+)/, type: "product", idGroup: 1 },
+    ],
+  },
+  {
+    platform: "lookfantastic",
+    hostPatterns: [
+      /(?:www\.)?lookfantastic\.[a-z]{2,3}(?:\.[a-z]{2})?/i,
+    ],
+    resourceExtractors: [
+      // lookfantastic: /product-slug/12345678.html
+      { pattern: /\/(\d{6,10})\.html/, type: "product", idGroup: 1 },
+      // Fallback: any slug path
+      { pattern: /\/([a-z0-9][\w-]+\/\d+)\.html/, type: "product", idGroup: 1 },
+    ],
+  },
+  {
+    platform: "namshi",
+    hostPatterns: [
+      /(?:www\.)?namshi\.com/i,
+    ],
+    resourceExtractors: [
+      // namshi: /uae-en/p/product-name/W12345678/
+      { pattern: /\/p\/[^/]*\/([A-Z]?\d{5,})/, type: "product", idGroup: 1 },
+      // namshi: /buy/product-name.html
+      { pattern: /\/buy\/([^/?#]+)/, type: "product", idGroup: 1 },
+      // Fallback: any -p- pattern
+      { pattern: /-p-(\d+)/, type: "product", idGroup: 1 },
+    ],
+  },
 ]
 
 // ─── Tracking param cleanup ──────────────────────────────────────────────────
@@ -172,6 +221,12 @@ const TRACKING_PARAMS = new Set([
   "magession",
   // Noon
   "offer", "mp",
+  // Sephora
+  "skuId", "icid", "icid2",
+  // Lookfantastic / THG
+  "variation", "affil", "thg",
+  // Namshi
+  "sku",
 ])
 
 function stripTrackingParams(url: URL): void {
