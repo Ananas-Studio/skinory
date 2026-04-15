@@ -63,35 +63,9 @@ export class Html5QrcodeProvider implements ScannerProvider {
     if (this.running) return
 
     const facingMode = this.config.facingMode ?? 'environment'
-
-    // On mobile, prefer a specific camera ID over facingMode for better
-    // compatibility (iOS Safari can fail with facingMode constraints).
-    let cameraConfig: { deviceId: { exact: string } } | { facingMode: string }
-
-    if (this.activeCameraId) {
-      cameraConfig = { deviceId: { exact: this.activeCameraId } }
-    } else {
-      // Try to find the back camera by ID before falling back to facingMode.
-      try {
-        const cameras = await Html5Qrcode.getCameras()
-        const backCamera = cameras.find(
-          (c) => /back|rear|environment/i.test(c.label),
-        )
-        if (backCamera) {
-          this.activeCameraId = backCamera.id
-          cameraConfig = { deviceId: { exact: backCamera.id } }
-        } else if (cameras.length > 0) {
-          // On mobile, the last camera is typically the rear one.
-          const fallback = cameras[cameras.length - 1]
-          this.activeCameraId = fallback.id
-          cameraConfig = { deviceId: { exact: fallback.id } }
-        } else {
-          cameraConfig = { facingMode }
-        }
-      } catch {
-        cameraConfig = { facingMode }
-      }
-    }
+    const cameraConfig = this.activeCameraId
+      ? { deviceId: { exact: this.activeCameraId } }
+      : { facingMode }
 
     await this.scanner.start(
       cameraConfig,
