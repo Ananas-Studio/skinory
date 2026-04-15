@@ -192,18 +192,17 @@ function extractGeneric(html: string, url: string): EcommerceProduct {
 function extractAmazon(html: string, url: string): EcommerceProduct {
   const product = extractGeneric(html, url)
 
-  // Amazon-specific: product title
-  const titleContent = extractBetween(html, 'id="productTitle"', "</span>")
-  if (titleContent) {
-    const cleaned = stripHtmlTags(titleContent).replace(/^\s*>\s*/, "")
+  // Amazon-specific: product title — extract text content of the #productTitle span
+  const titleMatch = html.match(/id="productTitle"[^>]*>([\s\S]*?)<\/span>/)
+  if (titleMatch?.[1]) {
+    const cleaned = stripHtmlTags(titleMatch[1]).trim()
     if (cleaned) product.name = cleaned
   }
 
   // Amazon-specific: brand
-  const byline = extractBetween(html, 'id="bylineInfo"', "</a>")
-  if (byline) {
-    const brandText = stripHtmlTags(byline)
-      .replace(/^\s*>\s*/, "")
+  const bylineMatch = html.match(/id="bylineInfo"[^>]*>([\s\S]*?)<\/a>/)
+  if (bylineMatch?.[1]) {
+    const brandText = stripHtmlTags(bylineMatch[1])
       .replace(/^(Visit the |Brand: |Marka: )/, "")
       .replace(/ Store$/, "")
       .trim()
@@ -216,7 +215,41 @@ function extractAmazon(html: string, url: string): EcommerceProduct {
     if (metaBrand) product.brand = metaBrand
   }
 
-  // Amazon ingredient info (sometimes in feature bullets)
+  // Amazon image: data-old-hires on main image, or landingImage src
+  if (!product.imageUrl) {
+    const hiresMatch = html.match(/data-old-hires="([^"]+)"/)
+    if (hiresMatch?.[1]) {
+      product.imageUrl = hiresMatch[1]
+    } else {
+      const imgMatch = html.match(/id="landingImage"[^>]*src="([^"]+)"/)
+      if (imgMatch?.[1]) product.imageUrl = imgMatch[1]
+    }
+  }
+
+  // Amazon price
+  if (!product.price) {
+    const priceWhole = html.match(/a-price-whole">(\d[\d,]*)</)
+    const priceFraction = html.match(/a-price-decimal">\.\s*<\/span><span[^>]*>(\d+)/)
+    if (priceWhole?.[1]) {
+      const fraction = priceFraction?.[1] ?? "00"
+      product.price = `${priceWhole[1].replace(/,/g, "")}.${fraction}`
+    }
+  }
+
+  // Amazon currency from price symbol
+  if (!product.currency) {
+    const symbolMatch = html.match(/a-price-symbol">([^<]+)</)
+    if (symbolMatch?.[1]) {
+      const sym = symbolMatch[1].trim()
+      const currencyMap: Record<string, string> = {
+        "AED": "AED", "₺": "TRY", "$": "USD", "€": "EUR", "£": "GBP", "¥": "JPY",
+        "TL": "TRY", "SAR": "SAR", "S$": "SGD", "A$": "AUD", "C$": "CAD",
+      }
+      product.currency = currencyMap[sym] ?? sym
+    }
+  }
+
+  // Amazon ingredient info (sometimes in important-information section)
   const ingredientSection = extractBetween(html, 'id="important-information"', "</div>")
   if (ingredientSection) {
     const text = stripHtmlTags(ingredientSection)
@@ -319,10 +352,10 @@ export async function readEcommerceProduct(
   const extractor = PLATFORM_EXTRACTORS[platform] ?? extractGeneric
   const product = extractor(html, url)
 
-  // Final cleanup: trim all string fields
-  if (product.name) product.name = product.name.trim()
-  if (product.brand) product.brand = product.brand.trim()
-  if (product.description) product.description = product.description.trim()
+  // Final cleanup: trim and decode HTML entities in all string fields
+  if (product.name) product.name = decodeHtmlEntities(product.name).trim()
+  if (product.brand) product.brand = decodeHtmlEntities(product.brand).trim()
+  if (product.description) product.description = decodeHtmlEntities(product.description).trim()
 
   return product
 }

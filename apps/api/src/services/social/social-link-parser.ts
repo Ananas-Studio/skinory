@@ -80,14 +80,8 @@ const PLATFORM_RULES: PlatformRule[] = [
   {
     platform: "amazon",
     hostPatterns: [
-      /(?:www\.)?amazon\.com\.tr/i,
-      /(?:www\.)?amazon\.com/i,
-      /(?:www\.)?amazon\.de/i,
-      /(?:www\.)?amazon\.co\.uk/i,
-      /(?:www\.)?amazon\.fr/i,
-      /(?:www\.)?amazon\.es/i,
-      /(?:www\.)?amazon\.it/i,
-      /(?:www\.)?amazon\.co\.jp/i,
+      // Matches any Amazon regional domain (amazon.com, amazon.co.uk, amazon.ae, etc.)
+      /(?:www\.)?amazon\.[a-z]{2,3}(?:\.[a-z]{2})?/i,
       /(?:www\.)?amzn\.to/i,
       /(?:www\.)?amzn\.eu/i,
     ],
@@ -157,6 +151,9 @@ const TRACKING_PARAMS = new Set([
   // Amazon
   "tag", "linkCode", "linkId", "ref_", "psc", "sprefix", "crid",
   "dib", "dib_tag", "keywords", "qid", "sr", "th",
+  "pd_rd_w", "pd_rd_wg", "pd_rd_r", "pd_rd_i",
+  "pf_rd_p", "pf_rd_r", "pf_rd_s", "pf_rd_t", "pf_rd_i",
+  "content-id",
   // Trendyol
   "boutiqueId", "merchantId", "sav",
   // Hepsiburada
