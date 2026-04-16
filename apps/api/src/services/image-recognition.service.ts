@@ -8,6 +8,7 @@ import {
   inferCategoryFromText,
   type LookupResult,
 } from './product-lookup.service.js'
+import { searchObfByName } from './obf-client.js'
 
 // ─── Public types ────────────────────────────────────────────────────────────
 
@@ -338,8 +339,51 @@ export async function recognizeProductFromImage(
     }
   }
 
-  // Step C: Text-based product matching using Vision-extracted fields
-  const candidates = await searchCandidates(extracted)
+  // Step C: Text-based product matching — internal DB first
+  let candidates = await searchCandidates(extracted)
+
+  // Step D: If internal DB has no good match, search Open Beauty Facts by name
+  if (candidates.length === 0 || candidates[0].score < MEDIUM_CONFIDENCE_THRESHOLD) {
+    const searchQuery = [extracted.brand, extracted.name].filter(Boolean).join(' ')
+    if (searchQuery) {
+      try {
+        console.log(`[image-recognition] Internal DB miss, searching OBF: "${searchQuery}"`)
+        const obfResults = await searchObfByName(searchQuery, 5)
+
+        const obfCandidates: CandidateProduct[] = obfResults.map((p) => {
+          const name = p.product_name ?? 'Unknown Product'
+          const brandName = p.brands?.split(',')[0]?.trim() ?? null
+          const candidate = {
+            id: `obf:${normalize(brandName ?? '')}:${normalize(name)}`,
+            name,
+            brandName,
+            category: inferCategoryFromText(name, brandName),
+            imageUrl: p.image_url ?? null,
+            score: 0,
+          }
+          candidate.score = scoreCandidate(extracted, candidate)
+          return candidate
+        })
+
+        // Merge OBF candidates with internal, re-sort
+        const merged = new Map<string, CandidateProduct>()
+        for (const c of [...candidates, ...obfCandidates]) {
+          const key = normalize([c.brandName, c.name].filter(Boolean).join(' '))
+          const existing = merged.get(key)
+          if (!existing || c.score > existing.score) {
+            merged.set(key, c)
+          }
+        }
+        candidates = [...merged.values()]
+          .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name))
+          .slice(0, MAX_CANDIDATES)
+
+        console.log(`[image-recognition] OBF returned ${obfResults.length} results, merged ${candidates.length} candidates`)
+      } catch {
+        console.warn('[image-recognition] OBF search failed, continuing with internal results')
+      }
+    }
+  }
 
   const topScore = candidates.length > 0 ? candidates[0].score : 0
   const matchType: MatchType =
@@ -354,7 +398,7 @@ export async function recognizeProductFromImage(
 
   await Scan.create({
     userId,
-    productId: matchType === 'exact' ? candidates[0].id : null,
+    productId: matchType === 'exact' && !candidates[0].id.startsWith('obf:') ? candidates[0].id : null,
     scanType: 'image',
     resultStatus,
     scanDurationMs: Math.round(performance.now() - startTime),
