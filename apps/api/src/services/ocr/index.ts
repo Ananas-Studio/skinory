@@ -1,4 +1,5 @@
 import { TesseractProvider } from './tesseract-provider.js'
+import { VisionOcrProvider } from './vision-provider.js'
 import type { OcrProvider } from './types.js'
 
 export type { OcrOptions, OcrProvider, OcrResult } from './types.js'
@@ -7,10 +8,13 @@ export type { OcrOptions, OcrProvider, OcrResult } from './types.js'
 
 let instance: OcrProvider | null = null
 
-export function createOcrProvider(type: 'tesseract' = 'tesseract'): OcrProvider {
+export function createOcrProvider(type: 'vision' | 'tesseract' = 'vision'): OcrProvider {
   if (instance) return instance
 
   switch (type) {
+    case 'vision':
+      instance = new VisionOcrProvider()
+      break
     case 'tesseract':
       instance = new TesseractProvider()
       break
