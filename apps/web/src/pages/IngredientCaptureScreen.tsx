@@ -84,26 +84,71 @@ function IngredientCaptureScreen() {
   const barcode = state?.barcode ?? ''
   const prefill = state?.prefill ?? null
 
-  const cameraInputRef = useRef<HTMLInputElement>(null)
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const streamRef = useRef<MediaStream | null>(null)
   const uploadInputRef = useRef<HTMLInputElement>(null)
 
   const [screenState, setScreenState] = useState<ScreenState>('capture')
+  const [cameraReady, setCameraReady] = useState(false)
+  const [cameraError, setCameraError] = useState('')
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [ocrResult, setOcrResult] = useState<OcrIngredientsResult | null>(null)
   const [editedText, setEditedText] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
 
-  // Clean up object URL on unmount or when preview changes
+  // Start camera when in capture mode
+  useEffect(() => {
+    if (screenState !== 'capture') return
+
+    let cancelled = false
+
+    async function startCamera() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } },
+          audio: false,
+        })
+        if (cancelled) {
+          stream.getTracks().forEach((t) => t.stop())
+          return
+        }
+        streamRef.current = stream
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream
+          await videoRef.current.play()
+          setCameraReady(true)
+          setCameraError('')
+        }
+      } catch {
+        if (!cancelled) {
+          setCameraError('Camera access denied. Use Upload Photo instead.')
+          setCameraReady(false)
+        }
+      }
+    }
+
+    startCamera()
+
+    return () => {
+      cancelled = true
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((t) => t.stop())
+        streamRef.current = null
+      }
+      setCameraReady(false)
+    }
+  }, [screenState])
+
+  // Clean up object URL on unmount
   useEffect(() => {
     return () => {
       if (previewUrl) URL.revokeObjectURL(previewUrl)
     }
   }, [previewUrl])
 
-  const handleFileSelected = useCallback(
+  const processFile = useCallback(
     async (file: File) => {
-      // Revoke previous URL
       if (previewUrl) URL.revokeObjectURL(previewUrl)
 
       const url = URL.createObjectURL(file)
@@ -117,19 +162,54 @@ function IngredientCaptureScreen() {
         setOcrResult(result)
         setEditedText(result.ocrText)
         setScreenState('review')
-      } catch (err: any) {
-        setErrorMessage(err.message ?? 'Failed to extract ingredients')
-        toast.error(err.message ?? 'Failed to extract ingredients')
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'Failed to extract ingredients'
+        setErrorMessage(msg)
+        toast.error(msg)
         setScreenState('error')
       }
     },
-    [previewUrl],
+    [previewUrl, userId],
   )
 
-  function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
+  function handleTakePhoto() {
+    const video = videoRef.current
+    if (!video || video.readyState < 2) return
+
+    // Stop camera stream before processing
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop())
+      streamRef.current = null
+    }
+
+    const canvas = document.createElement('canvas')
+    canvas.width = video.videoWidth
+    canvas.height = video.videoHeight
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    ctx.drawImage(video, 0, 0)
+
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) return
+        const file = new File([blob], 'ingredient-photo.jpg', { type: 'image/jpeg' })
+        processFile(file)
+      },
+      'image/jpeg',
+      0.92,
+    )
+  }
+
+  function handleUploadChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
-    if (file) handleFileSelected(file)
-    // Reset input value so the same file can be re-selected
+    if (file) {
+      // Stop camera when uploading
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((t) => t.stop())
+        streamRef.current = null
+      }
+      processFile(file)
+    }
     e.target.value = ''
   }
 
@@ -139,6 +219,7 @@ function IngredientCaptureScreen() {
     setOcrResult(null)
     setEditedText('')
     setErrorMessage('')
+    setCameraReady(false)
     if (previewUrl) {
       URL.revokeObjectURL(previewUrl)
       setPreviewUrl(null)
@@ -181,7 +262,7 @@ function IngredientCaptureScreen() {
 
   function handleRetry() {
     if (imageFile) {
-      handleFileSelected(imageFile)
+      processFile(imageFile)
     } else {
       handleRetake()
     }
@@ -192,21 +273,12 @@ function IngredientCaptureScreen() {
   if (screenState === 'capture') {
     return (
       <ScreenFrame variant="camera">
-        {/* Hidden file inputs */}
-        <input
-          ref={cameraInputRef}
-          type="file"
-          accept="image/*"
-          capture="environment"
-          onChange={handleInputChange}
-          className="hidden"
-          aria-hidden="true"
-        />
+        {/* Hidden upload input (fallback) */}
         <input
           ref={uploadInputRef}
           type="file"
           accept="image/*"
-          onChange={handleInputChange}
+          onChange={handleUploadChange}
           className="hidden"
           aria-hidden="true"
         />
@@ -226,20 +298,36 @@ function IngredientCaptureScreen() {
           <ProductInfoBar name={productName} barcode={barcode} brand={prefill?.brand} />
         </section>
 
-        {/* Viewfinder area */}
-        <section className="mt-6 flex flex-1 flex-col items-center justify-center">
-          <div className="flex h-[280px] w-full flex-col items-center justify-center rounded-[24px] border-4 border-dashed border-white/60">
-            <Camera size={48} className="text-white/70" />
-            <p className="mt-4 px-8 text-center text-[14px] leading-[20px] text-white/90">
-              Take a clear photo of the ingredient list on the product packaging
-            </p>
+        {/* Live camera viewfinder */}
+        <section className="relative mt-6 flex flex-1 flex-col items-center justify-center overflow-hidden rounded-[24px]">
+          <video
+            ref={videoRef}
+            autoPlay
+            playsInline
+            muted
+            className="absolute inset-0 h-full w-full object-cover"
+          />
+          {/* Overlay guide frame */}
+          <div className="relative z-10 flex h-[280px] w-full flex-col items-center justify-center rounded-[24px] border-4 border-dashed border-white/60">
+            {!cameraReady && !cameraError && (
+              <Loader2 size={36} className="animate-spin text-white/70" />
+            )}
+            {cameraError && (
+              <p className="px-8 text-center text-[14px] text-white/90">{cameraError}</p>
+            )}
+            {cameraReady && (
+              <p className="px-8 text-center text-[14px] leading-[20px] text-white/90">
+                Point at the ingredient list and tap Take Photo
+              </p>
+            )}
           </div>
         </section>
 
         {/* Action buttons */}
         <section className="mt-auto flex flex-col gap-3 pb-8">
           <PrimaryButton
-            onClick={() => cameraInputRef.current?.click()}
+            onClick={handleTakePhoto}
+            disabled={!cameraReady}
             className="w-full"
           >
             <Camera size={18} />
