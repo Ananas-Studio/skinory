@@ -106,7 +106,7 @@ function ProductCardBubble({ product }: { product: ProductInfo }) {
     <article className="flex justify-end animate-fade-in-right">
       <div className="flex max-w-[260px] gap-3 rounded-[16px] border border-[#e4e4e7] bg-white p-2.5">
         <img
-          src={product.imageUrl ?? '/introduction-image.png'}
+          src={product.imageUrl ?? '/no-product.svg'}
           alt={product.name}
           className="size-14 shrink-0 rounded-[10px] bg-[#f4f4f5] object-cover"
         />

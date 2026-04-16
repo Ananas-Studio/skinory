@@ -11,6 +11,7 @@ async function bootstrap() {
 
     const server = app.listen(env.port, () => {
       console.log(`API listening on port ${env.port}`);
+      console.log(`ScrapingBee: ${env.scrapingbeeApiKey ? "configured ✓" : "NOT configured (SCRAPINGBEE_API_KEY missing)"}`);
     });
 
     const shutdown = async (signal: string) => {

@@ -360,13 +360,7 @@ export default function ProductDetailScreen() {
           <div className="relative">
             <div className="absolute inset-3 rounded-3xl bg-[#ee886e]/8 blur-xl" />
             <div className="relative h-60 w-60 overflow-hidden rounded-3xl border-2 border-white/60 bg-white shadow-xl shadow-[#ee886e]/10">
-              {product.imageUrl ? (
-                <img src={product.imageUrl} alt={product.name} className="h-full w-full object-contain p-3" />
-              ) : (
-                <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#fbe9e4] to-[#f4cbc0]">
-                  <Droplet className="h-18 w-18 text-[#ee886e]/25" />
-                </div>
-              )}
+              <img src={product.imageUrl ?? '/no-product.svg'} alt={product.name} className="h-full w-full object-contain p-3" />
             </div>
           </div>
 

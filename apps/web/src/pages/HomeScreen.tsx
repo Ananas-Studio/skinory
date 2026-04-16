@@ -268,7 +268,7 @@ function HomeScreen() {
                   subtitle: scan.product?.brandName ?? scan.barcodeValue ?? '',
                   tags: scan.product?.category ? [scan.product.category] : [],
                 }}
-                imageSrc={scan.product?.imageUrl ?? '/introduction-image.png'}
+                imageSrc={scan.product?.imageUrl ?? '/no-product.svg'}
                 className="snap-start"
                 isFavorited={scan.product?.id ? favoriteIds.has(scan.product.id) : false}
                 onToggleFavorite={scan.product?.id ? () => handleToggleFavorite(scan.product!.id) : undefined}
@@ -312,7 +312,7 @@ function HomeScreen() {
                   subtitle: p.brandName ?? '',
                   tags: [p.category],
                 }}
-                imageSrc={p.imageUrl ?? '/introduction-image.png'}
+                imageSrc={p.imageUrl ?? '/no-product.svg'}
                 className='w-auto min-w-[152px]'
                 isFavorited={favoriteIds.has(p.id)}
                 onToggleFavorite={() => handleToggleFavorite(p.id)}

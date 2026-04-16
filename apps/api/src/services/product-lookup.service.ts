@@ -3,6 +3,12 @@ import { parseIngredientString } from "@skinory/core";
 import { sequelize } from "../config/database.js";
 import { getModels } from "../models/index.js";
 import { fetchObfProduct, type ObfProduct } from "./obf-client.js";
+import { downloadImage } from "./image-proxy.service.js";
+import {
+  uploadProductImage,
+  isAzureStorageConfigured,
+  ensureContainer,
+} from "./azure-blob.service.js";
 
 // ─── Public types ────────────────────────────────────────────────────────────
 
@@ -41,6 +47,27 @@ export class ProductLookupError extends Error {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
+/** Build the best available product name from OBF data. */
+function resolveProductName(obf: ObfProduct, barcode: string): string {
+  // 1. Explicit product name
+  const name = obf.product_name?.trim();
+  if (name) return name;
+
+  // 2. Alternative OBF name fields
+  const generic = obf.generic_name?.trim();
+  if (generic) return generic;
+
+  const abbreviated = obf.abbreviated_product_name?.trim();
+  if (abbreviated) return abbreviated;
+
+  // 3. Brand name as fallback (e.g. "Unilever")
+  const brand = obf.brands?.split(",")[0]?.trim();
+  if (brand) return brand;
+
+  // 4. Last resort
+  return `Unknown Product (${barcode})`;
+}
+
 export function detectBarcodeFormat(barcode: string): "EAN13" | "UPC" | "OTHER" {
   const digits = barcode.replace(/\D/g, "");
   if (digits.length === 13) return "EAN13";
@@ -48,13 +75,29 @@ export function detectBarcodeFormat(barcode: string): "EAN13" | "UPC" | "OTHER" 
   return "OTHER";
 }
 
+// Transliterate accented / non-ASCII Latin characters to ASCII equivalents.
+// Covers Turkish (ğüşıöç İ), common European diacritics, and Nordic letters.
+const CHAR_MAP: Record<string, string> = {
+  ğ: "g", ü: "u", ş: "s", ı: "i", ö: "o", ç: "c",
+  Ğ: "g", Ü: "u", Ş: "s", İ: "i", Ö: "o", Ç: "c",
+  â: "a", ê: "e", î: "i", ô: "o", û: "u",
+  á: "a", é: "e", í: "i", ó: "o", ú: "u",
+  à: "a", è: "e", ì: "i", ò: "o", ù: "u",
+  ä: "a", ë: "e", ï: "i", ñ: "n", ý: "y",
+  å: "a", æ: "ae", ø: "o", ß: "ss",
+}
+
+export function transliterate(text: string): string {
+  return text.replace(/[^\u0000-\u007F]/g, (ch) => CHAR_MAP[ch] ?? "")
+}
+
 export function slugify(name: string): string {
-  return name
+  return transliterate(name)
     .toLowerCase()
     .replace(/[^a-z0-9\s-]/g, "")
     .replace(/[\s]+/g, "-")
     .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "");
+    .replace(/^-|-$/g, "")
 }
 
 // ─── Internal DB lookup ──────────────────────────────────────────────────────
@@ -130,7 +173,7 @@ async function persistExternalProduct(
     getModels();
 
   const obfUrl = `https://world.openbeautyfacts.org/api/v2/product/${encodeURIComponent(barcode)}`;
-  const productName = obfProduct.product_name?.trim() || `Unknown Product (${barcode})`;
+  const productName = resolveProductName(obfProduct, barcode);
   const brandName = obfProduct.brands?.split(",")[0]?.trim() || null;
   const imageUrl = obfProduct.image_url?.trim() || null;
   const rawIngredientsText = obfProduct.ingredients_text?.trim() || null;
@@ -235,7 +278,7 @@ async function persistExternalProduct(
 
 // ─── Skincare keyword sets (OBF uses these in categories & categories_tags) ──
 
-const SKINCARE_KEYWORDS = [
+export const SKINCARE_KEYWORDS = [
   "skincare", "skin care", "skin-care",
   // face
   "face", "facial", "visage",
@@ -244,6 +287,7 @@ const SKINCARE_KEYWORDS = [
   "exfoliant", "exfoliator", "scrub", "peel",
   "mask", "eye cream", "eye care",
   "lotion", "cream", "balm", "oil", "gel", "essence", "ampoule", "emulsion",
+  "retinol", "niacinamide", "hyaluronic",
   // concerns
   "anti-aging", "anti-wrinkle", "acne", "blemish", "hydrating", "brightening",
   // sun
@@ -252,26 +296,53 @@ const SKINCARE_KEYWORDS = [
   // body
   "body care", "body-care", "body lotion", "body cream", "hand cream",
   // cleansing
-  "micellar", "cleansing", "make-up remover", "makeup remover",
+  "micellar", "cleansing", "make-up remover", "makeup remover", "wash",
   // beauty generic (OBF tags)
   "beauty", "beauty-products", "non-food-products",
   // hair (still skincare-adjacent in OBF context)
   "shampoo", "conditioner", "hair care", "hair-care",
   // lips
   "lip care", "lip balm", "lip-care",
+  // Turkish
+  "cilt", "cilt bakimi", "cilt bakim", "nemlendirici", "temizleyici",
+  "tonik", "peeling", "maske", "losyon", "yuz", "goz kremi", "goz",
+  "gunes koruma", "gunes kremi", "vucut bakimi", "el kremi",
+  "yikama", "arindirici",
 ]
 
-const MAKEUP_KEYWORDS = [
+export const MAKEUP_KEYWORDS = [
   "makeup", "make-up", "cosmetic",
   "foundation", "lipstick", "mascara", "eyeliner", "eyeshadow",
   "blush", "concealer", "primer", "contour", "highlighter",
   "nail polish", "nail-polish",
+  // Turkish
+  "makyaj", "ruj", "rimel", "far", "allik", "kapatici", "fondoten",
 ]
 
-const SUPPLEMENT_KEYWORDS = [
+export const SUPPLEMENT_KEYWORDS = [
   "supplement", "vitamin", "dietary",
   "nutraceutical", "collagen supplement",
+  // Turkish
+  "takviye", "besin takviyesi",
 ]
+
+export function inferCategoryFromText(
+  ...texts: (string | null | undefined)[]
+): "skincare" | "makeup" | "supplement" | "other" {
+  const haystack = texts
+    .filter(Boolean)
+    .map((t) => transliterate(t!).toLowerCase())
+    .join(" ")
+  if (!haystack) return "other"
+
+  if (SUPPLEMENT_KEYWORDS.some((kw) => haystack.includes(kw))) {
+    if (!SKINCARE_KEYWORDS.some((kw) => haystack.includes(kw))) return "supplement"
+  }
+  if (SKINCARE_KEYWORDS.some((kw) => haystack.includes(kw))) return "skincare"
+  if (MAKEUP_KEYWORDS.some((kw) => haystack.includes(kw))) return "makeup"
+  if (SUPPLEMENT_KEYWORDS.some((kw) => haystack.includes(kw))) return "supplement"
+  return "other"
+}
 
 function extractCategory(
   categories: string | undefined,
@@ -296,6 +367,41 @@ function extractCategory(
   return "other"
 }
 
+// ─── Async image upload to Azure Blob Storage ───────────────────────────────
+
+async function uploadImageToAzure(
+  productId: string,
+  imageUrl: string,
+  brandSlug: string | null,
+  productSlug: string,
+): Promise<void> {
+  try {
+    if (!isAzureStorageConfigured()) return;
+
+    await ensureContainer();
+
+    const downloaded = await downloadImage(imageUrl);
+    if (!downloaded) return;
+
+    const azureUrl = await uploadProductImage(
+      downloaded.buffer,
+      brandSlug,
+      productSlug,
+      downloaded.contentType,
+      downloaded.extension,
+    );
+
+    const { Product } = getModels();
+    await Product.update(
+      { imageUrl: azureUrl },
+      { where: { id: productId } },
+    );
+  } catch (err) {
+    // Graceful degradation: OBF URL remains if upload fails
+    console.error("[image-upload] Failed to upload product image to Azure:", err);
+  }
+}
+
 // ─── Main entry point ────────────────────────────────────────────────────────
 
 export async function resolveProduct(barcode: string, userId: string): Promise<LookupResult> {
@@ -305,7 +411,7 @@ export async function resolveProduct(barcode: string, userId: string): Promise<L
 
   const sanitized = barcode.trim();
 
-  // Step 1: Check internal DB
+  // Step 1: Check internal DB — existing products are never re-uploaded
   const internal = await lookupInternal(sanitized);
   if (internal) return internal;
 
@@ -314,14 +420,23 @@ export async function resolveProduct(barcode: string, userId: string): Promise<L
   if (obfResult.found && obfResult.product) {
     try {
       const persisted = await persistExternalProduct(sanitized, obfResult.product, userId);
+      const obfImageUrl = obfResult.product.image_url?.trim() || null;
+
+      // Fire-and-forget: upload image to Azure in the background
+      if (obfImageUrl) {
+        const brandSlug = persisted.brandName ? slugify(persisted.brandName) : null;
+        const resolvedName = resolveProductName(obfResult.product, sanitized);
+        const productSlug = slugify(resolvedName) || `product-${sanitized}`;
+        uploadImageToAzure(persisted.productId, obfImageUrl, brandSlug, productSlug).catch(() => {});
+      }
 
       return {
         product: {
           id: persisted.productId,
           barcode: sanitized,
-          name: obfResult.product.product_name?.trim() || null,
+          name: resolveProductName(obfResult.product, sanitized),
           brand: persisted.brandName,
-          imageUrl: obfResult.product.image_url?.trim() || null,
+          imageUrl: obfImageUrl,
           source: "open_beauty_facts",
           ingredientsText: persisted.ingredientsText,
           ingredients: persisted.ingredientNames,

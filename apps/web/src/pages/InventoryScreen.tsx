@@ -27,7 +27,7 @@ function inventoryToCard(item: InventoryItem): CardItem {
       subtitle: item.brandName ?? item.category,
       tags: [item.category],
     },
-    imageUrl: item.imageUrl ?? '/introduction-image.png',
+    imageUrl: item.imageUrl ?? '/no-product.svg',
     productId: item.productId,
   }
 }
@@ -39,7 +39,7 @@ function favoriteToCard(item: FavoriteItem): CardItem {
       subtitle: item.product?.brandName ?? item.product?.category ?? '',
       tags: item.product?.category ? [item.product.category] : [],
     },
-    imageUrl: item.product?.imageUrl ?? '/introduction-image.png',
+    imageUrl: item.product?.imageUrl ?? '/no-product.svg',
     productId: item.productId,
   }
 }
@@ -51,7 +51,7 @@ function scanToCard(item: ScanHistoryItem): CardItem {
       subtitle: item.product?.brandName ?? item.barcodeValue ?? '',
       tags: item.product?.category ? [item.product.category] : [],
     },
-    imageUrl: item.product?.imageUrl ?? '/introduction-image.png',
+    imageUrl: item.product?.imageUrl ?? '/no-product.svg',
     productId: item.product?.id,
   }
 }

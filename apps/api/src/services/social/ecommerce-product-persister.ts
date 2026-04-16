@@ -5,7 +5,7 @@
 
 import { sequelize } from "../../config/database.js"
 import { getModels } from "../../models/index.js"
-import { slugify } from "../product-lookup.service.js"
+import { slugify, inferCategoryFromText } from "../product-lookup.service.js"
 import { parseIngredientString } from "@skinory/core"
 import type { EcommerceProduct } from "./ecommerce-content-reader.js"
 
@@ -23,15 +23,6 @@ export interface PersistedEcommerceProduct {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function inferCategory(text: string | null): "skincare" | "makeup" | "supplement" | "other" {
-  if (!text) return "other"
-  const lower = text.toLowerCase()
-  if (lower.includes("skincare") || lower.includes("cilt") || lower.includes("moistur") || lower.includes("cleanser") || lower.includes("serum") || lower.includes("nemlendirici") || lower.includes("temizleyici")) return "skincare"
-  if (lower.includes("makeup") || lower.includes("makyaj") || lower.includes("foundation") || lower.includes("lipstick") || lower.includes("ruj") || lower.includes("far")) return "makeup"
-  if (lower.includes("supplement") || lower.includes("vitamin") || lower.includes("takviye")) return "supplement"
-  return "other"
-}
-
 // ─── Public API ──────────────────────────────────────────────────────────────
 
 export async function persistEcommerceProduct(
@@ -42,7 +33,66 @@ export async function persistEcommerceProduct(
   if (!productName) return null
 
   const result = await sequelize.transaction(async (transaction) => {
-    const { Brand, Product, Ingredient, ProductIngredient, Scan } = getModels()
+    const { Brand, Product, Ingredient, ProductIngredient, Scan, ProductSource } = getModels()
+
+    // ── URL-based dedup: same URL → same product ─────────────────────────
+    const sourceUrl = ecomProduct.url?.trim() || null
+    if (sourceUrl) {
+      const existingSource = await ProductSource.findOne({
+        where: { sourceUrl, sourceKind: "url_scrape" },
+        transaction,
+      })
+      if (existingSource) {
+        const existing = await Product.findByPk(existingSource.productId, {
+          include: [{ model: Brand, as: "brand" }],
+          transaction,
+        })
+        if (existing) {
+          // Record a new scan but reuse the existing product
+          await Scan.create(
+            { userId, productId: existing.id, scanType: "url", resultStatus: "success" },
+            { transaction },
+          )
+          const brand = (existing as unknown as { brand?: { name: string } }).brand
+          const existingIngCount = await ProductIngredient.count({
+            where: { productId: existing.id },
+            transaction,
+          })
+
+          // If we now have ingredients that were previously missing, persist them
+          if (existingIngCount === 0 && ecomProduct.ingredientsText) {
+            const parsed = parseIngredientString(ecomProduct.ingredientsText)
+            for (const item of parsed.ingredients) {
+              const [ingredient] = await Ingredient.findOrCreate({
+                where: { inciName: item.inciName },
+                defaults: { inciName: item.inciName, displayName: item.rawLabel },
+                transaction,
+              })
+              await ProductIngredient.findOrCreate({
+                where: { productId: existing.id, ingredientId: ingredient.id },
+                defaults: {
+                  productId: existing.id,
+                  ingredientId: ingredient.id,
+                  ingredientOrder: item.order,
+                  rawLabel: item.rawLabel,
+                },
+                transaction,
+              })
+            }
+          }
+
+          return {
+            productId: existing.id,
+            name: existing.name,
+            brand: brand?.name ?? null,
+            imageUrl: existing.imageUrl ?? ecomProduct.imageUrl ?? null,
+            category: existing.category as "skincare" | "makeup" | "supplement" | "other",
+            isNew: false,
+            needsIngredients: existingIngCount === 0 && !ecomProduct.ingredientsText,
+          }
+        }
+      }
+    }
 
     // ── Brand ────────────────────────────────────────────────────────────
     let brandId: string | null = null
@@ -61,8 +111,8 @@ export async function persistEcommerceProduct(
 
     // ── Product ──────────────────────────────────────────────────────────
     const productSlug = slugify(productName) || `ecom-${Date.now()}`
-    const category = inferCategory(
-      ecomProduct.category ?? ecomProduct.description ?? ecomProduct.name,
+    const category = inferCategoryFromText(
+      ecomProduct.category, ecomProduct.description, ecomProduct.name, ecomProduct.brand,
     )
 
     const [product, created] = await Product.findOrCreate({
@@ -124,6 +174,20 @@ export async function persistEcommerceProduct(
       },
       { transaction },
     )
+
+    // ── ProductSource record for URL dedup ───────────────────────────────
+    if (sourceUrl) {
+      await ProductSource.findOrCreate({
+        where: { sourceUrl, sourceKind: "url_scrape" },
+        defaults: {
+          productId: product.id,
+          sourceKind: "url_scrape",
+          sourceUrl,
+          scrapeStatus: "success",
+        },
+        transaction,
+      })
+    }
 
     return {
       productId: product.id,

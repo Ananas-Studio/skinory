@@ -86,7 +86,7 @@ export function ProductCard({ item }: { item: Product }) {
 
 export function HorizontalProductCard({
   item,
-  imageSrc = '/introduction-image.png',
+  imageSrc = '/no-product.svg',
   className,
   showDecisionPanel = false,
   onPress,
@@ -163,7 +163,7 @@ export function HorizontalProductCard({
 
 export function VerticalProductCard({
   item,
-  imageSrc = '/introduction-image.png',
+  imageSrc = '/no-product.svg',
   className,
   isFavorited = false,
   onToggleFavorite,

@@ -12,7 +12,7 @@ function AdviserScanScreen() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const userId = user!.id
-  const productImage = '/introduction-image.png'
+  const productImage = '/no-product.svg'
   const [availableProducts, setAvailableProducts] = useState<ProductListItem[]>([])
 
   useEffect(() => {

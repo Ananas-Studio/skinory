@@ -68,40 +68,81 @@ export const STEP_ORDER_MAP: Record<RoutineTime, readonly RoutineStepCategory[]>
 // ─── Product Subcategory → Step Category Mapping ───
 
 export const PRODUCT_TO_STEP_MAP: Record<string, RoutineStepCategory> = {
+  // ─── Cleansing ─────────────────────────────────────────────────────────
   cleanser: "cleansing",
   "foam cleanser": "cleansing",
   "oil cleanser": "cleansing",
   "micellar water": "cleansing",
   "cleansing balm": "cleansing",
+  wash: "cleansing",
+  "facial wash": "cleansing",
+  "face wash": "cleansing",
+  // Turkish
+  temizleyici: "cleansing",
+  arindirici: "cleansing",
+  yikama: "cleansing",
 
+  // ─── Toning ────────────────────────────────────────────────────────────
   toner: "toning",
-  "essence": "toning",
-  "mist": "toning",
+  essence: "toning",
+  mist: "toning",
+  // Turkish
+  tonik: "toning",
 
+  // ─── Serum / Treatment ─────────────────────────────────────────────────
   serum: "serum",
   treatment: "serum",
   ampoule: "serum",
   "spot treatment": "serum",
+  retinol: "serum",
+  niacinamide: "serum",
 
+  // ─── Eye cream ─────────────────────────────────────────────────────────
   "eye cream": "eye_cream",
   "eye serum": "eye_cream",
   "eye gel": "eye_cream",
+  // Turkish
+  "goz kremi": "eye_cream",
+  "goz serumu": "eye_cream",
 
+  // ─── Moisturizing ──────────────────────────────────────────────────────
   moisturizer: "moisturizing",
   cream: "moisturizing",
   lotion: "moisturizing",
   "gel cream": "moisturizing",
   "night cream": "moisturizing",
+  // Turkish
+  nemlendirici: "moisturizing",
+  krem: "moisturizing",
+  losyon: "moisturizing",
 
+  // ─── Sun protection ────────────────────────────────────────────────────
   sunscreen: "sun_protection",
   spf: "sun_protection",
   "sun cream": "sun_protection",
   "uv protection": "sun_protection",
+  // Turkish
+  "gunes kremi": "sun_protection",
+  "gunes koruma": "sun_protection",
 
+  // ─── Face oil / sleeping mask ──────────────────────────────────────────
   "face oil": "face_oil",
   "facial oil": "face_oil",
   "sleeping mask": "face_oil",
   "night mask": "face_oil",
+  // Turkish
+  "yuz yagi": "face_oil",
+
+  // ─── Exfoliation (maps to serum step) ──────────────────────────────────
+  exfoliant: "serum",
+  exfoliator: "serum",
+  peel: "serum",
+  peeling: "serum",
+  scrub: "serum",
+
+  // ─── Mask (maps to serum step) ─────────────────────────────────────────
+  mask: "serum",
+  maske: "serum",
 }
 
 // ─── Ingredient Conflict Rules ───

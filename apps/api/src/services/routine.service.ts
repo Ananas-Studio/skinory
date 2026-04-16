@@ -1,4 +1,6 @@
+import { Op } from "sequelize"
 import { getModels } from "../models/index.js"
+import { transliterate } from "./product-lookup.service.js"
 import {
   ROUTINE_STEP_CATEGORIES,
   STEP_ORDER_MAP,
@@ -66,7 +68,7 @@ function inferStepCategory(product: any): RoutineStepCategory {
   const form = (product.productForm ?? "").toLowerCase().trim()
   if (form && PRODUCT_TO_STEP_MAP[form]) return PRODUCT_TO_STEP_MAP[form]
 
-  const name = (product.name ?? "").toLowerCase()
+  const name = transliterate(product.name ?? "").toLowerCase()
   for (const [keyword, category] of Object.entries(PRODUCT_TO_STEP_MAP)) {
     if (name.includes(keyword)) return category
   }
@@ -207,7 +209,7 @@ export async function generateRoutine(userId: string): Promise<GenerateResult> {
       {
         model: Product,
         as: "product",
-        where: { category: "skincare", isActive: true },
+        where: { category: { [Op.in]: ["skincare", "other"] }, isActive: true },
         include: [
           { model: Brand, as: "brand" },
           {
@@ -224,7 +226,7 @@ export async function generateRoutine(userId: string): Promise<GenerateResult> {
     throw new RoutineServiceError(
       "NO_SKINCARE_PRODUCTS",
       404,
-      "No skincare products in your inventory.",
+      "No skincare products in your inventory. Add skincare products first.",
     )
   }
 

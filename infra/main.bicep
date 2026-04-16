@@ -26,6 +26,7 @@ var prefix = 'skinory'
 var acrName = '${prefix}acr${suffix}'
 var dbServerName = '${prefix}-db-${suffix}'
 var envName = '${prefix}-env'
+var storageName = '${prefix}stor${suffix}'
 var dbName = 'skinory'
 var dbUser = 'skinadmin'
 
@@ -97,8 +98,35 @@ resource dbDatabase 'Microsoft.DBforPostgreSQL/flexibleServers/databases@2023-12
   name: dbName
 }
 
+// ─── Azure Storage Account (product images) ───
+resource storageAccount 'Microsoft.Storage/storageAccounts@2023-05-01' = {
+  name: storageName
+  location: location
+  kind: 'StorageV2'
+  sku: { name: 'Standard_LRS' }
+  properties: {
+    accessTier: 'Hot'
+    allowBlobPublicAccess: true
+    minimumTlsVersion: 'TLS1_2'
+  }
+}
+
+resource blobService 'Microsoft.Storage/storageAccounts/blobServices@2023-05-01' = {
+  parent: storageAccount
+  name: 'default'
+}
+
+resource productImagesContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-05-01' = {
+  parent: blobService
+  name: 'product-images'
+  properties: {
+    publicAccess: 'Blob'
+  }
+}
+
 // ─── Container Apps (only when deployApps=true, after images are pushed) ───
 var dbConnectionString = 'postgres://${dbUser}:${uriComponent(dbPassword)}@${dbServer.properties.fullyQualifiedDomainName}:5432/${dbName}?sslmode=require'
+var storageConnectionString = 'DefaultEndpointsProtocol=https;AccountName=${storageAccount.name};AccountKey=${storageAccount.listKeys().keys[0].value};EndpointSuffix=core.windows.net'
 
 resource apiApp 'Microsoft.App/containerApps@2024-03-01' = if (deployApps) {
   name: '${prefix}-api'
@@ -123,6 +151,7 @@ resource apiApp 'Microsoft.App/containerApps@2024-03-01' = if (deployApps) {
         { name: 'acr-password', value: acr.listCredentials().passwords[0].value }
         { name: 'database-url', value: dbConnectionString }
         { name: 'openai-api-key', value: openaiApiKey }
+        { name: 'azure-storage-conn', value: storageConnectionString }
       ]
     }
     template: {
@@ -140,6 +169,7 @@ resource apiApp 'Microsoft.App/containerApps@2024-03-01' = if (deployApps) {
             { name: 'DB_SYNC_FORCE', value: 'false' }
             { name: 'OPENAI_API_KEY', secretRef: 'openai-api-key' }
             { name: 'OPENAI_MODEL', value: 'gpt-4o-mini' }
+            { name: 'AZURE_STORAGE_CONNECTION_STRING', secretRef: 'azure-storage-conn' }
           ]
           probes: [
             {
@@ -265,3 +295,4 @@ output acrLoginServer string = acr.properties.loginServer
 output acrName string = acr.name
 output dbHost string = dbServer.properties.fullyQualifiedDomainName
 output environmentName string = containerEnv.name
+output storageAccountName string = storageAccount.name

@@ -3,6 +3,7 @@
 // then falls back to OpenGraph tag scraping.
 
 import type { Platform } from "./social-link-parser.js"
+import { fetchViaScrapingBee } from "../scrapingbee-client.js"
 
 export interface SocialContent {
   text: string
@@ -119,6 +120,8 @@ function extractJsonLdText(html: string): string | null {
 }
 
 async function readViaOpenGraph(url: string): Promise<SocialContent | null> {
+  let html: string | null = null
+
   try {
     const res = await fetchWithRetry(url, {
       headers: {
@@ -126,9 +129,20 @@ async function readViaOpenGraph(url: string): Promise<SocialContent | null> {
         Accept: "text/html",
       },
     })
-    if (!res.ok) return null
+    if (res.ok) html = await res.text()
+  } catch {
+    // Direct fetch failed — will try ScrapingBee below
+  }
 
-    const html = await res.text()
+  // ScrapingBee fallback when direct fetch fails
+  if (!html) {
+    console.warn(`[social-content-reader] Direct OG fetch failed for ${url}, trying ScrapingBee`)
+    html = await fetchViaScrapingBee(url)
+  }
+
+  if (!html) return null
+
+  try {
 
     const ogTitle = extractMetaContent(html, "og:title")
     const ogDescription = extractMetaContent(html, "og:description")

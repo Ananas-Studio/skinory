@@ -3,6 +3,7 @@
 // tags, JSON-LD Product schema, and platform-specific HTML extraction.
 
 import type { Platform } from "./social-link-parser.js"
+import { fetchViaScrapingBee } from "../scrapingbee-client.js"
 
 // ─── Public types ────────────────────────────────────────────────────────────
 
@@ -454,7 +455,12 @@ async function fetchHepsiburadaWithFallback(
   const htmlBrowser = await fetchPage(originalUrl)
   if (htmlBrowser && !isBotDetectionPage(htmlBrowser)) return { html: htmlBrowser, slugProduct: null }
 
-  // Strategy 3: extract product info from URL slug (always works)
+  // Strategy 3: ScrapingBee (JS-rendered, bypasses Akamai)
+  console.warn(`[ecommerce-content-reader] Hepsiburada: trying ScrapingBee fallback`)
+  const sbHtml = await fetchViaScrapingBee(originalUrl, { renderJs: true })
+  if (sbHtml && !isBotDetectionPage(sbHtml)) return { html: sbHtml, slugProduct: null }
+
+  // Strategy 4: extract product info from URL slug (always works)
   console.warn(`[ecommerce-content-reader] Hepsiburada HTML fetch blocked, falling back to URL slug extraction`)
   const slugProduct = extractProductFromSlug(originalUrl)
   if (slugProduct.name) return { html: null, slugProduct }
@@ -523,7 +529,12 @@ async function fetchSephoraWithFallback(
   const htmlBrowser = await fetchPage(originalUrl)
   if (htmlBrowser && !isBotDetectionPage(htmlBrowser)) return { html: htmlBrowser, slugProduct: null }
 
-  // Strategy 3: extract from URL slug
+  // Strategy 3: ScrapingBee (bypasses Akamai)
+  console.warn(`[ecommerce-content-reader] Sephora: trying ScrapingBee fallback`)
+  const sbHtml = await fetchViaScrapingBee(originalUrl, { renderJs: true })
+  if (sbHtml && !isBotDetectionPage(sbHtml)) return { html: sbHtml, slugProduct: null }
+
+  // Strategy 4: extract from URL slug
   console.warn(`[ecommerce-content-reader] Sephora HTML fetch blocked, falling back to URL slug extraction`)
   const slugProduct = extractProductFromSlug(originalUrl)
   if (slugProduct.name) return { html: null, slugProduct }
@@ -759,6 +770,11 @@ async function fetchAmazonWithFallback(originalUrl: string): Promise<{ html: str
     }
   }
 
+  // Strategy 3: ScrapingBee (bypasses Amazon bot protection)
+  console.warn(`[ecommerce-content-reader] Amazon: trying ScrapingBee fallback for ${originalUrl}`)
+  const sbHtml = await fetchViaScrapingBee(originalUrl)
+  if (sbHtml) return { html: sbHtml, searchProduct: null }
+
   return { html: null, searchProduct: null }
 }
 
@@ -850,6 +866,11 @@ async function fetchNoonWithFallback(originalUrl: string): Promise<{ html: strin
     if (apiProduct?.name) return { html: null, apiProduct }
   }
 
+  // Strategy 4: ScrapingBee (JS-rendered, bypasses restrictions)
+  console.warn(`[ecommerce-content-reader] Noon: trying ScrapingBee fallback`)
+  const sbHtml = await fetchViaScrapingBee(originalUrl, { renderJs: true })
+  if (sbHtml && !isBotDetectionPage(sbHtml)) return { html: sbHtml, apiProduct: null }
+
   return { html: null, apiProduct: null }
 }
 
@@ -874,96 +895,202 @@ export async function readEcommerceProduct(
   url: string,
 ): Promise<EcommerceProduct> {
   if (platform === "amazon") {
-    // Amazon uses multi-strategy fallback: direct page → search results
+    // Amazon uses multi-strategy fallback: direct page → search results → ScrapingBee
     const { html, searchProduct } = await fetchAmazonWithFallback(url)
     if (searchProduct) {
-      // Got product from search results — already extracted
       if (searchProduct.name) searchProduct.name = decodeHtmlEntities(searchProduct.name).trim()
       if (searchProduct.brand) searchProduct.brand = decodeHtmlEntities(searchProduct.brand).trim()
       return searchProduct
     }
-    if (!html) return { ...EMPTY_PRODUCT, url }
-    const product = extractAmazon(html, url)
-    if (product.name) product.name = decodeHtmlEntities(product.name).trim()
-    if (product.brand) product.brand = decodeHtmlEntities(product.brand).trim()
-    if (product.description) product.description = decodeHtmlEntities(product.description).trim()
-    return product
+
+    if (html) {
+      const product = extractAmazon(html, url)
+      if (product.name) {
+        product.name = decodeHtmlEntities(product.name).trim()
+        if (product.brand) product.brand = decodeHtmlEntities(product.brand).trim()
+        if (product.description) product.description = decodeHtmlEntities(product.description).trim()
+        return product
+      }
+      console.warn(`[ecommerce-content-reader] Amazon: direct HTML extraction found no product name, trying ScrapingBee`)
+    }
+
+    const sbHtml = await fetchViaScrapingBee(url)
+    if (sbHtml) {
+      const product = extractAmazon(sbHtml, url)
+      if (product.name) {
+        product.name = decodeHtmlEntities(product.name).trim()
+        if (product.brand) product.brand = decodeHtmlEntities(product.brand).trim()
+        if (product.description) product.description = decodeHtmlEntities(product.description).trim()
+        return product
+      }
+    }
+
+    return { ...EMPTY_PRODUCT, url }
   }
 
   if (platform === "hepsiburada") {
-    // Hepsiburada uses Akamai bot protection — try HTML fetch, fall back to URL slug
+    // Hepsiburada uses Akamai bot protection — try HTML fetch, fall back to ScrapingBee, then URL slug
     const { html, slugProduct } = await fetchHepsiburadaWithFallback(url)
     if (slugProduct) {
       if (slugProduct.name) slugProduct.name = decodeHtmlEntities(slugProduct.name).trim()
       if (slugProduct.brand) slugProduct.brand = decodeHtmlEntities(slugProduct.brand).trim()
       return slugProduct
     }
-    if (!html) return { ...EMPTY_PRODUCT, url }
-    const product = extractHepsiburada(html, url)
-    if (product.name) product.name = decodeHtmlEntities(product.name).trim()
-    if (product.brand) product.brand = decodeHtmlEntities(product.brand).trim()
-    if (product.description) product.description = decodeHtmlEntities(product.description).trim()
-    return product
+
+    // Try extracting from direct-fetched HTML
+    if (html) {
+      const product = extractHepsiburada(html, url)
+      if (product.name) {
+        product.name = decodeHtmlEntities(product.name).trim()
+        if (product.brand) product.brand = decodeHtmlEntities(product.brand).trim()
+        if (product.description) product.description = decodeHtmlEntities(product.description).trim()
+        return product
+      }
+      console.warn(`[ecommerce-content-reader] Hepsiburada: direct HTML extraction found no product name, trying ScrapingBee`)
+    }
+
+    // ScrapingBee fallback — either fetch failed or extraction failed
+    const sbHtml = await fetchViaScrapingBee(url, { renderJs: true })
+    if (sbHtml && !isBotDetectionPage(sbHtml)) {
+      const product = extractHepsiburada(sbHtml, url)
+      if (product.name) {
+        product.name = decodeHtmlEntities(product.name).trim()
+        if (product.brand) product.brand = decodeHtmlEntities(product.brand).trim()
+        if (product.description) product.description = decodeHtmlEntities(product.description).trim()
+        return product
+      }
+    }
+
+    // Last resort: URL slug
+    const fallbackSlug = extractProductFromSlug(url)
+    if (fallbackSlug.name) return fallbackSlug
+    return { ...EMPTY_PRODUCT, url }
   }
 
   if (platform === "noon") {
-    // Noon is JS-rendered (Next.js) — try HTML fetch, then catalog API fallback
     const { html, apiProduct } = await fetchNoonWithFallback(url)
     if (apiProduct) {
       if (apiProduct.name) apiProduct.name = decodeHtmlEntities(apiProduct.name).trim()
       if (apiProduct.brand) apiProduct.brand = decodeHtmlEntities(apiProduct.brand).trim()
       return apiProduct
     }
-    if (!html) return { ...EMPTY_PRODUCT, url }
-    const product = extractNoon(html, url)
-    if (product.name) product.name = decodeHtmlEntities(product.name).trim()
-    if (product.brand) product.brand = decodeHtmlEntities(product.brand).trim()
-    if (product.description) product.description = decodeHtmlEntities(product.description).trim()
-    return product
+
+    if (html) {
+      const product = extractNoon(html, url)
+      if (product.name) {
+        product.name = decodeHtmlEntities(product.name).trim()
+        if (product.brand) product.brand = decodeHtmlEntities(product.brand).trim()
+        if (product.description) product.description = decodeHtmlEntities(product.description).trim()
+        return product
+      }
+      console.warn(`[ecommerce-content-reader] Noon: direct HTML extraction found no product name, trying ScrapingBee`)
+    }
+
+    const sbHtml = await fetchViaScrapingBee(url, { renderJs: true })
+    if (sbHtml && !isBotDetectionPage(sbHtml)) {
+      const product = extractNoon(sbHtml, url)
+      if (product.name) {
+        product.name = decodeHtmlEntities(product.name).trim()
+        if (product.brand) product.brand = decodeHtmlEntities(product.brand).trim()
+        if (product.description) product.description = decodeHtmlEntities(product.description).trim()
+        return product
+      }
+    }
+
+    return { ...EMPTY_PRODUCT, url }
   }
 
   if (platform === "sephora") {
-    // Sephora.com/.com.tr use Akamai — try HTML, fallback to URL slug
     const { html, slugProduct } = await fetchSephoraWithFallback(url)
     if (slugProduct) {
       if (slugProduct.name) slugProduct.name = decodeHtmlEntities(slugProduct.name).trim()
       if (slugProduct.brand) slugProduct.brand = decodeHtmlEntities(slugProduct.brand).trim()
       return slugProduct
     }
-    if (!html) return { ...EMPTY_PRODUCT, url }
-    const product = extractSephora(html, url)
-    if (product.name) product.name = decodeHtmlEntities(product.name).trim()
-    if (product.brand) product.brand = decodeHtmlEntities(product.brand).trim()
-    if (product.description) product.description = decodeHtmlEntities(product.description).trim()
-    return product
+
+    if (html) {
+      const product = extractSephora(html, url)
+      if (product.name) {
+        product.name = decodeHtmlEntities(product.name).trim()
+        if (product.brand) product.brand = decodeHtmlEntities(product.brand).trim()
+        if (product.description) product.description = decodeHtmlEntities(product.description).trim()
+        return product
+      }
+      console.warn(`[ecommerce-content-reader] Sephora: direct HTML extraction found no product name, trying ScrapingBee`)
+    }
+
+    const sbHtml = await fetchViaScrapingBee(url, { renderJs: true })
+    if (sbHtml && !isBotDetectionPage(sbHtml)) {
+      const product = extractSephora(sbHtml, url)
+      if (product.name) {
+        product.name = decodeHtmlEntities(product.name).trim()
+        if (product.brand) product.brand = decodeHtmlEntities(product.brand).trim()
+        if (product.description) product.description = decodeHtmlEntities(product.description).trim()
+        return product
+      }
+    }
+
+    const fallbackSlug = extractProductFromSlug(url)
+    if (fallbackSlug.name) return fallbackSlug
+    return { ...EMPTY_PRODUCT, url }
   }
 
   if (platform === "namshi") {
-    // Namshi (noon-owned) may block from some IPs — try crawler UA first
     const html = await fetchPage(url, { useCrawlerUA: true }) ?? await fetchPage(url)
-    if (!html || isBotDetectionPage(html)) {
-      // Fallback to URL slug extraction
-      const slugProduct = extractProductFromSlug(url)
-      if (slugProduct.name) return slugProduct
-      return { ...EMPTY_PRODUCT, url }
+
+    if (html && !isBotDetectionPage(html)) {
+      const product = extractNamshi(html, url)
+      if (product.name) {
+        product.name = decodeHtmlEntities(product.name).trim()
+        if (product.brand) product.brand = decodeHtmlEntities(product.brand).trim()
+        if (product.description) product.description = decodeHtmlEntities(product.description).trim()
+        return product
+      }
+      console.warn(`[ecommerce-content-reader] Namshi: direct HTML extraction found no product name, trying ScrapingBee`)
     }
-    const product = extractNamshi(html, url)
-    if (product.name) product.name = decodeHtmlEntities(product.name).trim()
-    if (product.brand) product.brand = decodeHtmlEntities(product.brand).trim()
-    if (product.description) product.description = decodeHtmlEntities(product.description).trim()
-    return product
+
+    // ScrapingBee fallback
+    const sbHtml = await fetchViaScrapingBee(url)
+    if (sbHtml && !isBotDetectionPage(sbHtml)) {
+      const product = extractNamshi(sbHtml, url)
+      if (product.name) {
+        product.name = decodeHtmlEntities(product.name).trim()
+        if (product.brand) product.brand = decodeHtmlEntities(product.brand).trim()
+        if (product.description) product.description = decodeHtmlEntities(product.description).trim()
+        return product
+      }
+    }
+
+    const slugProduct = extractProductFromSlug(url)
+    if (slugProduct.name) return slugProduct
+    return { ...EMPTY_PRODUCT, url }
   }
 
+  // ─── Generic platforms ───────────────────────────────────────────────────────
   const html = await fetchPage(url)
-  if (!html) return { ...EMPTY_PRODUCT, url }
-
   const extractor = PLATFORM_EXTRACTORS[platform] ?? extractGeneric
-  const product = extractor(html, url)
 
-  // Final cleanup: trim and decode HTML entities in all string fields
-  if (product.name) product.name = decodeHtmlEntities(product.name).trim()
-  if (product.brand) product.brand = decodeHtmlEntities(product.brand).trim()
-  if (product.description) product.description = decodeHtmlEntities(product.description).trim()
+  if (html) {
+    const product = extractor(html, url)
+    if (product.name) {
+      product.name = decodeHtmlEntities(product.name).trim()
+      if (product.brand) product.brand = decodeHtmlEntities(product.brand).trim()
+      if (product.description) product.description = decodeHtmlEntities(product.description).trim()
+      return product
+    }
+    console.warn(`[ecommerce-content-reader] ${platform}: direct HTML extraction found no product name, trying ScrapingBee`)
+  }
 
-  return product
+  const sbHtml = await fetchViaScrapingBee(url)
+  if (sbHtml) {
+    const product = extractor(sbHtml, url)
+    if (product.name) {
+      product.name = decodeHtmlEntities(product.name).trim()
+      if (product.brand) product.brand = decodeHtmlEntities(product.brand).trim()
+      if (product.description) product.description = decodeHtmlEntities(product.description).trim()
+      return product
+    }
+  }
+
+  return { ...EMPTY_PRODUCT, url }
 }

@@ -442,7 +442,7 @@ function SocialScannerScreen() {
             <h3 className="text-sm font-semibold">Product Found</h3>
             <div className="flex items-center gap-3 rounded-xl border p-3">
               <img
-                src={ecommerceProduct.imageUrl ?? '/introduction-image.png'}
+                src={ecommerceProduct.imageUrl ?? '/no-product.svg'}
                 alt={ecommerceProduct.name}
                 className="h-14 w-14 shrink-0 rounded-lg bg-muted object-cover"
               />
@@ -491,7 +491,7 @@ function SocialScannerScreen() {
                     className="flex items-center gap-3 rounded-xl border p-3"
                   >
                     <img
-                      src={product.imageUrl ?? '/introduction-image.png'}
+                      src={product.imageUrl ?? '/no-product.svg'}
                       alt={product.name}
                       className="h-14 w-14 shrink-0 rounded-lg bg-muted object-cover"
                     />

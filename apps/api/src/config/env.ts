@@ -15,4 +15,6 @@ export const env = {
   dbSyncForce: (process.env.DB_SYNC_FORCE ?? "false") === "true",
   openaiApiKey: process.env.OPENAI_API_KEY ?? "",
   openaiModel: process.env.OPENAI_MODEL ?? "gpt-4o-mini",
+  scrapingbeeApiKey: process.env.SCRAPINGBEE_API_KEY ?? "",
+  azureStorageConnectionString: process.env.AZURE_STORAGE_CONNECTION_STRING ?? "",
 } as const;

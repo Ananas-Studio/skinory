@@ -20,6 +20,8 @@ function getClient(): OpenFoodFacts {
 
 export interface ObfProduct {
   product_name?: string
+  generic_name?: string
+  abbreviated_product_name?: string
   brands?: string
   image_url?: string
   ingredients_text?: string
@@ -54,6 +56,8 @@ export async function fetchObfProduct(barcode: string): Promise<ObfProductResult
       found: true,
       product: {
         product_name: typeof p.product_name === "string" ? p.product_name : undefined,
+        generic_name: typeof p.generic_name === "string" ? p.generic_name : undefined,
+        abbreviated_product_name: typeof p.abbreviated_product_name === "string" ? p.abbreviated_product_name : undefined,
         brands: typeof p.brands === "string" ? p.brands : undefined,
         image_url: typeof p.image_url === "string" ? p.image_url : undefined,
         ingredients_text: typeof p.ingredients_text === "string" ? p.ingredients_text : undefined,

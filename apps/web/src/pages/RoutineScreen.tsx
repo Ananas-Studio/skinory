@@ -57,7 +57,7 @@ function RoutineStepCard({
         onClick={onPress}
       >
         <img
-          src={step.imageUrl ?? '/introduction-image.png'}
+          src={step.imageUrl ?? '/no-product.svg'}
           alt={step.productName}
           className="size-16 shrink-0 rounded-lg object-cover"
           loading="lazy"

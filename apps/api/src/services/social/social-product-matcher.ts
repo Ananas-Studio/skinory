@@ -17,14 +17,12 @@ export interface ProductMatch {
   confidence: number
 }
 
+import { slugify } from "../../services/product-lookup.service.js"
+
 // ─── Slug helper ─────────────────────────────────────────────────────────────
 
 function toSlug(text: string): string {
-  return text
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
+  return slugify(text)
 }
 
 // ─── Public API ──────────────────────────────────────────────────────────────

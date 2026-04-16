@@ -267,13 +267,11 @@ function AdviserResultScreen() {
           {/* Product card */}
           <div className="flex items-start overflow-hidden">
             <div className="size-[86px] shrink-0 overflow-hidden rounded-[16px] bg-[linear-gradient(145deg,#f9ded7,#f4cbc0)]">
-              {product.imageUrl ? (
-                <img
-                  src={product.imageUrl}
-                  alt={product.name}
-                  className="size-full object-cover"
-                />
-              ) : null}
+              <img
+                src={product.imageUrl ?? '/no-product.svg'}
+                alt={product.name}
+                className="size-full object-cover"
+              />
             </div>
             <div className="flex flex-1 flex-col gap-3 pl-3">
               <div className="flex flex-col gap-2 leading-none">
