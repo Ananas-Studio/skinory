@@ -244,3 +244,88 @@ export async function saveIngredients(
 
   return json.data
 }
+
+// ─── Image recognition types ─────────────────────────────────────────────────
+
+export interface ImageRecognitionCandidate {
+  id: string
+  name: string
+  brandName: string | null
+  category: string
+  imageUrl: string | null
+  score: number
+}
+
+export interface ImageRecognitionExtracted {
+  barcode: string | null
+  text: string
+  brand: string | null
+  name: string | null
+  attributes: string[]
+}
+
+export interface ImageRecognitionResult {
+  matchType: 'exact' | 'candidates' | 'none'
+  confidence: number
+  matchedProduct: ImageRecognitionCandidate | null
+  candidates: ImageRecognitionCandidate[]
+  extracted: ImageRecognitionExtracted
+}
+
+// ─── Image recognition API ───────────────────────────────────────────────────
+
+export async function recognizeImage(
+  userId: string,
+  imageFile: File,
+): Promise<ImageRecognitionResult> {
+  const formData = new FormData()
+  formData.append('image', imageFile)
+
+  const res = await fetch(`${API_BASE}/recognize-image`, {
+    method: 'POST',
+    headers: { 'x-user-id': userId },
+    body: formData,
+  })
+
+  const json = await res.json()
+
+  if (!json.ok) {
+    throw new ApiError(
+      json.error?.code ?? 'UNKNOWN_ERROR',
+      json.error?.message ?? 'Image recognition failed',
+    )
+  }
+
+  return json.data
+}
+
+// ─── Create product API ──────────────────────────────────────────────────────
+
+export interface CreateProductResult {
+  id: string
+  name: string
+  brandName: string | null
+  category: string
+}
+
+export async function createProduct(
+  userId: string,
+  data: { name: string; brand?: string; attributes?: string[] },
+): Promise<CreateProductResult> {
+  const res = await fetch(`${API_BASE}/create-product`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
+    body: JSON.stringify(data),
+  })
+
+  const json = await res.json()
+
+  if (!json.ok) {
+    throw new ApiError(
+      json.error?.code ?? 'UNKNOWN_ERROR',
+      json.error?.message ?? 'Failed to create product',
+    )
+  }
+
+  return json.data
+}

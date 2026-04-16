@@ -16,6 +16,7 @@ import {
   evaluateProduct,
   ocrIngredients,
   saveIngredients,
+  createProduct,
   type OcrIngredientsResult,
 } from '../lib/scan-api'
 import { useAuth } from '../contexts/auth-context'
@@ -26,17 +27,24 @@ interface LocationState {
   productId?: string
   productName?: string
   barcode?: string
+  prefill?: {
+    brand: string | null
+    name: string | null
+    attributes: string[]
+  }
 }
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
-function ProductInfoBar({ name, barcode }: { name: string; barcode: string }) {
+function ProductInfoBar({ name, barcode, brand }: { name: string; barcode: string; brand?: string | null }) {
   return (
     <div className="flex items-center gap-3 rounded-[12px] border border-[#e4e4e7] bg-white p-3">
       <div className="h-10 w-10 shrink-0 rounded-[8px] bg-[linear-gradient(145deg,#f9ded7,#f4cbc0)]" aria-hidden="true" />
       <div className="min-w-0 flex-1">
         <p className="truncate text-[14px] leading-[18px] font-medium text-[#18181b]">{name}</p>
-        <p className="mt-0.5 text-[12px] leading-[16px] text-[#71717a]">Barcode: {barcode}</p>
+        <p className="mt-0.5 text-[12px] leading-[16px] text-[#71717a]">
+          {barcode ? `Barcode: ${barcode}` : brand ?? 'Photo scan'}
+        </p>
       </div>
     </div>
   )
@@ -72,8 +80,9 @@ function IngredientCaptureScreen() {
   const state = location.state as LocationState | null
 
   const productId = state?.productId ?? ''
-  const productName = state?.productName ?? 'Unknown Product'
+  const productName = state?.prefill?.name ?? state?.productName ?? 'Unknown Product'
   const barcode = state?.barcode ?? ''
+  const prefill = state?.prefill ?? null
 
   const cameraInputRef = useRef<HTMLInputElement>(null)
   const uploadInputRef = useRef<HTMLInputElement>(null)
@@ -137,18 +146,35 @@ function IngredientCaptureScreen() {
   }
 
   async function handleConfirm() {
-    if (!productId || !editedText.trim()) return
+    if (!editedText.trim()) return
 
     setScreenState('saving')
     setErrorMessage('')
 
     try {
-      await saveIngredients(userId, productId, editedText.trim())
-      const evalResult = await evaluateProduct(userId, productId)
-      navigate('/adviser/result', { state: { productId, result: evalResult } })
-    } catch (err: any) {
-      setErrorMessage(err.message ?? 'Failed to save ingredients')
-      toast.error(err.message ?? 'Failed to save ingredients')
+      let resolvedProductId = productId
+
+      // If no productId, create the product first (photo scan flow)
+      if (!resolvedProductId && prefill?.name) {
+        const created = await createProduct(userId, {
+          name: prefill.name,
+          brand: prefill.brand ?? undefined,
+          attributes: prefill.attributes,
+        })
+        resolvedProductId = created.id
+      }
+
+      if (!resolvedProductId) {
+        throw new Error('No product to save ingredients for')
+      }
+
+      await saveIngredients(userId, resolvedProductId, editedText.trim())
+      const evalResult = await evaluateProduct(userId, resolvedProductId)
+      navigate('/adviser/result', { state: { productId: resolvedProductId, result: evalResult } })
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to save ingredients'
+      setErrorMessage(msg)
+      toast.error(msg)
       setScreenState('error')
     }
   }
@@ -197,7 +223,7 @@ function IngredientCaptureScreen() {
 
         {/* Product info */}
         <section className="mt-4">
-          <ProductInfoBar name={productName} barcode={barcode} />
+          <ProductInfoBar name={productName} barcode={barcode} brand={prefill?.brand} />
         </section>
 
         {/* Viewfinder area */}

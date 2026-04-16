@@ -11,7 +11,13 @@ import {
 import {
   resolveProduct,
   ProductLookupError,
+  slugify,
+  inferCategoryFromText,
 } from '../services/product-lookup.service.js'
+import {
+  recognizeProductFromImage,
+  ImageRecognitionError,
+} from '../services/image-recognition.service.js'
 import { createOcrProvider } from '../services/ocr/index.js'
 import { sequelize } from '../config/database.js'
 import { Op } from 'sequelize'
@@ -376,6 +382,115 @@ scanRouter.post('/save-ingredients', async (req: Request, res: Response) => {
     res.status(500).json({
       ok: false,
       error: { code: 'INTERNAL_ERROR', message: 'Failed to save ingredients' },
+    })
+  }
+})
+
+// ─── POST /scan/create-product ──────────────────────────────────────────────
+
+const createProductSchema = z.object({
+  name: z.string().trim().min(1, 'Product name is required'),
+  brand: z.string().trim().optional(),
+  attributes: z.array(z.string()).optional(),
+})
+
+scanRouter.post('/create-product', async (req: Request, res: Response) => {
+  try {
+    const body = createProductSchema.parse(req.body)
+    const { Product, Brand } = getModels()
+
+    let brandId: string | null = null
+    if (body.brand) {
+      const brandSlug = slugify(body.brand)
+      if (brandSlug) {
+        const [brand] = await Brand.findOrCreate({
+          where: { slug: brandSlug },
+          defaults: { name: body.brand, slug: brandSlug },
+        })
+        brandId = (brand as any).id
+      }
+    }
+
+    const productSlug = slugify(body.name) || `product-${Date.now()}`
+    const category = inferCategoryFromText(body.name, body.brand ?? null)
+
+    const product = await Product.create({
+      name: body.name,
+      brandId,
+      slug: productSlug,
+      category,
+      sourceType: 'manual_import',
+      sourceConfidence: '0.6000',
+    })
+
+    const p = product as any
+    res.json({
+      ok: true,
+      data: {
+        id: p.id,
+        name: p.name,
+        brandName: body.brand ?? null,
+        category: p.category,
+      },
+    })
+  } catch (err: any) {
+    if (err instanceof ZodError) {
+      const zodErr = err as ZodError
+      res.status(400).json({
+        ok: false,
+        error: { code: 'VALIDATION_ERROR', message: zodErr.issues[0]?.message ?? 'Invalid input', details: zodErr.issues },
+      })
+      return
+    }
+    console.error('[scan/create-product] Error:', err)
+    res.status(500).json({
+      ok: false,
+      error: { code: 'INTERNAL_ERROR', message: 'Failed to create product' },
+    })
+  }
+})
+
+// ─── POST /scan/recognize-image ─────────────────────────────────────────────
+
+scanRouter.post('/recognize-image', upload.single('image'), async (req: Request, res: Response) => {
+  try {
+    const file = req.file
+    if (!file) {
+      res.status(400).json({
+        ok: false,
+        error: { code: 'MISSING_IMAGE', message: 'An image file is required (field: "image")' },
+      })
+      return
+    }
+
+    const userId = req.authUserId as string
+    const result = await recognizeProductFromImage(file.buffer, userId)
+
+    res.json({ ok: true, data: result })
+  } catch (err: any) {
+    if (err instanceof multer.MulterError) {
+      const message = err.code === 'LIMIT_FILE_SIZE'
+        ? 'Image must be under 10 MB'
+        : err.code === 'LIMIT_UNEXPECTED_FILE'
+          ? 'Only image files are accepted'
+          : err.message
+      res.status(400).json({
+        ok: false,
+        error: { code: 'UPLOAD_ERROR', message },
+      })
+      return
+    }
+    if (err instanceof ImageRecognitionError) {
+      res.status(err.status).json({
+        ok: false,
+        error: { code: err.code, message: err.message, details: err.details },
+      })
+      return
+    }
+    console.error('[scan/recognize-image] Error:', err)
+    res.status(500).json({
+      ok: false,
+      error: { code: 'INTERNAL_ERROR', message: 'Failed to recognize product from image' },
     })
   }
 })
