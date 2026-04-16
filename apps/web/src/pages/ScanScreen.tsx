@@ -3,20 +3,24 @@ import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import {
   ArrowLeft,
+  Camera,
   CameraOff,
   CircleAlert,
   Flashlight,
   FlashlightOff,
   Loader2,
   PackageSearch,
+  PlusCircle,
   RefreshCw,
   ScanBarcode,
   ShieldAlert,
+  Sparkles,
+  Tag,
   Zap,
 } from '@skinory/ui/icons'
 import { IconButton, PrimaryButton, SecondaryButton } from './shared'
 import { useBarcodeScan } from '../hooks/useBarcodeScan'
-import { resolveBarcode, evaluateProduct, ApiError, type LookupResult } from '../lib/scan-api'
+import { resolveBarcode, evaluateProduct, recognizeImage, ApiError, type LookupResult, type ImageRecognitionResult, type ImageRecognitionCandidate } from '../lib/scan-api'
 import { useAuth } from '../contexts/auth-context'
 
 const SCANNER_CONTAINER_ID = 'barcode-scanner'
@@ -30,6 +34,10 @@ type ScanPhase =
   | 'needs_ingredients'
   | 'usage_limit'
   | 'error'
+  | 'photo_processing'
+  | 'photo_exact'
+  | 'photo_candidates'
+  | 'photo_none'
 
 function ScanScreen() {
   const navigate = useNavigate()
@@ -40,6 +48,7 @@ function ScanScreen() {
   const [errorMessage, setErrorMessage] = useState('')
   const [torchOn, setTorchOn] = useState(false)
   const processingRef = useRef(false)
+  const [photoResult, setPhotoResult] = useState<ImageRecognitionResult | null>(null)
 
   const handleDetected = useCallback(
     async (result: { text: string; format: string }) => {
@@ -119,6 +128,71 @@ function ScanScreen() {
   function handleNeedsIngredients() {
     if (lookupResult) {
       navigate('/scan/ingredients', { state: { productId: lookupResult.product.id, product: lookupResult.product } })
+    }
+  }
+
+  async function handlePhotoCapture() {
+    // Grab the live video element rendered by html5-qrcode inside the scanner container
+    const container = document.getElementById(SCANNER_CONTAINER_ID)
+    const video = container?.querySelector('video')
+    if (!video || video.readyState < 2) {
+      toast.error('Camera is not ready yet')
+      return
+    }
+
+    // Draw current frame onto a temporary canvas
+    const canvas = document.createElement('canvas')
+    canvas.width = video.videoWidth
+    canvas.height = video.videoHeight
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    ctx.drawImage(video, 0, 0)
+
+    // Convert to blob → File
+    const blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob(resolve, 'image/jpeg', 0.9),
+    )
+    if (!blob) return
+
+    const file = new File([blob], 'photo-scan.jpg', { type: 'image/jpeg' })
+
+    setPhase('photo_processing')
+    setErrorMessage('')
+    setPhotoResult(null)
+
+    try {
+      const result = await recognizeImage(userId, file)
+      setPhotoResult(result)
+
+      if (result.matchType === 'exact' && result.matchedProduct) {
+        setPhase('photo_exact')
+        setTimeout(async () => {
+          try {
+            const evalResult = await evaluateProduct(userId, result.matchedProduct!.id)
+            navigate('/adviser/result', { state: { result: evalResult } })
+          } catch {
+            navigate('/adviser/result', { state: { productId: result.matchedProduct!.id } })
+          }
+        }, 1200)
+      } else if (result.matchType === 'candidates') {
+        setPhase('photo_candidates')
+      } else {
+        setPhase('photo_none')
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Recognition failed'
+      setErrorMessage(msg)
+      toast.error(msg)
+      setPhase('error')
+    }
+  }
+
+  async function handleSelectCandidate(candidate: ImageRecognitionCandidate) {
+    try {
+      const evalResult = await evaluateProduct(userId, candidate.id)
+      navigate('/adviser/result', { state: { result: evalResult } })
+    } catch {
+      navigate('/adviser/result', { state: { productId: candidate.id } })
     }
   }
 
@@ -263,17 +337,11 @@ function ScanScreen() {
 
         {phase === 'found' && lookupResult && (
           <div className="flex w-full items-center gap-3 rounded-2xl bg-white/95 p-3 backdrop-blur-sm">
-            {lookupResult.product.imageUrl ? (
-              <img
-                src={lookupResult.product.imageUrl}
-                alt={lookupResult.product.name ?? 'Product'}
-                className="size-12 shrink-0 rounded-xl object-cover"
-              />
-            ) : (
-              <div className="grid size-12 shrink-0 place-items-center rounded-xl bg-[linear-gradient(145deg,#f9ded7,#f4cbc0)]">
-                <PackageSearch size={20} className="text-[#ee886e]" />
-              </div>
-            )}
+            <img
+              src={lookupResult.product.imageUrl ?? '/no-product.svg'}
+              alt={lookupResult.product.name ?? 'Product'}
+              className="size-12 shrink-0 rounded-xl object-cover"
+            />
             <div className="min-w-0 flex-1">
               <p className="truncate text-[14px] font-medium text-[#18181b]">{lookupResult.product.name}</p>
               {lookupResult.product.brand && (
@@ -351,17 +419,182 @@ function ScanScreen() {
           </div>
         )}
 
-        {/* Flashlight toggle */}
-        {scanning && phase === 'scanning' && (
-          <button
-            type="button"
-            onClick={() => setTorchOn((v) => !v)}
-            className="mt-1 grid size-11 place-items-center rounded-full bg-white/20 text-white backdrop-blur-sm transition-colors hover:bg-white/30"
-            aria-label={torchOn ? 'Turn off flashlight' : 'Turn on flashlight'}
-          >
-            {torchOn ? <FlashlightOff size={20} /> : <Flashlight size={20} />}
-          </button>
+        {/* ── Photo recognition phases ── */}
+
+        {phase === 'photo_processing' && (
+          <div className="flex w-full flex-col items-center gap-3 rounded-2xl bg-white/95 p-5 backdrop-blur-sm">
+            <Loader2 size={32} className="animate-spin text-[#ee886e]" />
+            <p className="text-center text-[15px] font-medium text-[#18181b]">Recognizing product…</p>
+            <p className="text-center text-[13px] text-[#71717a]">Scanning for barcodes and product info</p>
+          </div>
         )}
+
+        {phase === 'photo_exact' && photoResult?.matchedProduct && (
+          <div className="flex w-full flex-col items-center gap-3 rounded-2xl bg-white/95 p-5 backdrop-blur-sm">
+            <div className="flex w-full items-center gap-3">
+              <img
+                src={photoResult.matchedProduct.imageUrl ?? '/no-product.svg'}
+                alt={photoResult.matchedProduct.name}
+                className="size-12 shrink-0 rounded-xl object-cover"
+              />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[14px] font-medium text-[#18181b]">{photoResult.matchedProduct.name}</p>
+                {photoResult.matchedProduct.brandName && (
+                  <p className="truncate text-[12px] text-[#71717a]">{photoResult.matchedProduct.brandName}</p>
+                )}
+              </div>
+              <span className="shrink-0 rounded-full bg-[#e1fee6] px-2 py-0.5 text-[11px] font-medium text-[#009636]">
+                {Math.round(photoResult.confidence * 100)}%
+              </span>
+            </div>
+            <div className="flex items-center gap-2 text-[13px] text-[#71717a]">
+              <Loader2 size={14} className="animate-spin" />
+              Preparing analysis…
+            </div>
+          </div>
+        )}
+
+        {phase === 'photo_candidates' && photoResult && (
+          <div className="flex w-full flex-col gap-2 rounded-2xl bg-white/95 p-4 backdrop-blur-sm">
+            <p className="text-center text-[14px] font-medium text-[#18181b]">Possible Matches</p>
+            {photoResult.candidates.map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => handleSelectCandidate(c)}
+                className="flex w-full items-center gap-3 rounded-xl border border-[#e4e4e7] bg-white p-2.5 text-left transition-colors hover:bg-[#fef4f2] active:bg-[#fce8e3]"
+              >
+                <img
+                  src={c.imageUrl ?? '/no-product.svg'}
+                  alt={c.name}
+                  className="size-10 shrink-0 rounded-lg object-cover"
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[13px] font-medium text-[#18181b]">{c.name}</p>
+                  {c.brandName && <p className="truncate text-[11px] text-[#71717a]">{c.brandName}</p>}
+                </div>
+                <span className="shrink-0 rounded-full bg-[#f4f4f5] px-2 py-0.5 text-[11px] font-medium text-[#71717a]">
+                  {Math.round(c.score * 100)}%
+                </span>
+              </button>
+            ))}
+            <div className="mt-1 flex w-full gap-2">
+              <SecondaryButton onClick={handleRetry} className="flex-1 min-h-10 text-[13px]">
+                <RefreshCw size={14} />
+                Retry
+              </SecondaryButton>
+              <SecondaryButton onClick={() => navigate('/scan/ingredients')} className="flex-1 min-h-10 text-[13px]">
+                Manual
+              </SecondaryButton>
+            </div>
+          </div>
+        )}
+
+        {phase === 'photo_none' && (
+          <div className="flex w-full flex-col items-center gap-3 rounded-2xl bg-white/95 p-5 backdrop-blur-sm">
+            {photoResult?.extracted?.brand || photoResult?.extracted?.name ? (
+              <>
+                <Sparkles size={36} className="text-[#f97316]" />
+                <p className="text-center text-[16px] font-medium text-[#18181b]">Product Detected</p>
+                <p className="text-center text-[13px] leading-[18px] text-[#71717a]">
+                  We identified the product but it's not in our database yet.
+                </p>
+
+                {/* Extracted info card */}
+                <div className="mt-1 w-full rounded-xl bg-[#f4f4f5] p-3 space-y-1.5">
+                  {photoResult.extracted.brand && (
+                    <div className="flex items-center gap-2 text-[13px]">
+                      <Tag size={13} className="shrink-0 text-[#a1a1aa]" />
+                      <span className="text-[#71717a]">Brand:</span>
+                      <span className="font-medium text-[#18181b]">{photoResult.extracted.brand}</span>
+                    </div>
+                  )}
+                  {photoResult.extracted.name && (
+                    <div className="flex items-center gap-2 text-[13px]">
+                      <PackageSearch size={13} className="shrink-0 text-[#a1a1aa]" />
+                      <span className="text-[#71717a]">Product:</span>
+                      <span className="font-medium text-[#18181b]">{photoResult.extracted.name}</span>
+                    </div>
+                  )}
+                  {photoResult.extracted.attributes.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                      {photoResult.extracted.attributes.map((attr, i) => (
+                        <span key={i} className="rounded-full bg-white px-2 py-0.5 text-[11px] font-medium text-[#71717a]">
+                          {attr}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="mt-1 flex w-full gap-2">
+                  <PrimaryButton
+                    onClick={() => navigate('/scan/ingredients', {
+                      state: {
+                        prefill: {
+                          brand: photoResult.extracted.brand,
+                          name: photoResult.extracted.name,
+                          attributes: photoResult.extracted.attributes,
+                        },
+                      },
+                    })}
+                    className="flex-1 min-h-10 text-[13px]"
+                  >
+                    <PlusCircle size={14} />
+                    Add Product
+                  </PrimaryButton>
+                  <SecondaryButton onClick={handleRetry} className="flex-1 min-h-10 text-[13px]">
+                    <RefreshCw size={14} />
+                    Try Again
+                  </SecondaryButton>
+                </div>
+              </>
+            ) : (
+              <>
+                <PackageSearch size={36} className="text-[#71717a]" />
+                <p className="text-center text-[16px] font-medium text-[#18181b]">No Match Found</p>
+                <p className="text-center text-[13px] leading-[18px] text-[#71717a]">
+                  Couldn't identify this product from the photo. Try scanning its barcode instead.
+                </p>
+                <div className="mt-1 flex w-full gap-2">
+                  <PrimaryButton onClick={handleRetry} className="flex-1 min-h-10 text-[13px]">
+                    <RefreshCw size={14} />
+                    Try Again
+                  </PrimaryButton>
+                  <SecondaryButton onClick={() => navigate('/scan/ingredients')} className="flex-1 min-h-10 text-[13px]">
+                    Manual
+                  </SecondaryButton>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Flashlight toggle + Photo capture */}
+        {phase === 'scanning' && (
+          <div className="mt-1 flex items-center gap-3">
+            {scanning && (
+              <button
+                type="button"
+                onClick={() => setTorchOn((v) => !v)}
+                className="grid size-11 place-items-center rounded-full bg-white/20 text-white backdrop-blur-sm transition-colors hover:bg-white/30"
+                aria-label={torchOn ? 'Turn off flashlight' : 'Turn on flashlight'}
+              >
+                {torchOn ? <FlashlightOff size={20} /> : <Flashlight size={20} />}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={handlePhotoCapture}
+              className="flex items-center gap-2 rounded-full bg-[#ee886e] px-5 py-2.5 text-[13px] font-semibold text-white shadow-lg transition-colors hover:bg-[#e57f65] active:bg-[#d9745b]"
+              aria-label="Take photo to identify product"
+            >
+              <Camera size={18} />
+              Photo Scan
+            </button>
+          </div>
+        )}
+
       </div>
     </main>
   )
