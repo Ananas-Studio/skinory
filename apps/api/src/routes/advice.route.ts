@@ -75,7 +75,8 @@ adviceRouter.get("/sessions", requireAuth, async (req, res) => {
 
     res.status(200).json({
       ok: true,
-      data: { sessions, total, limit, offset },
+      data: sessions,
+      pagination: { total, limit, offset },
     });
   } catch (error: unknown) {
     respondAdviceError(res, error);
@@ -90,7 +91,8 @@ adviceRouter.get("/sessions/:sessionId/messages", requireAuth, async (req, res) 
 
     res.status(200).json({
       ok: true,
-      data: { messages, total, limit, offset },
+      data: messages,
+      pagination: { total, limit, offset },
     });
   } catch (error: unknown) {
     respondAdviceError(res, error);

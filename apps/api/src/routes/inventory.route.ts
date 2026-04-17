@@ -72,7 +72,8 @@ inventoryRouter.get("/items", requireAuth, async (req, res) => {
 
     res.status(200).json({
       ok: true,
-      data: { items, total, limit, offset },
+      data: items,
+      pagination: { total, limit, offset },
     })
   } catch (error: unknown) {
     respondInventoryError(res, error)
