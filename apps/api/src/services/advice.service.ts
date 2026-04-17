@@ -19,6 +19,39 @@ Guidelines:
 - If you don't have enough information about the user's skin, ask clarifying questions.
 - Respond in the same language the user writes in.`;
 
+// ─── Context Budget ──────────────────────────────────────────────────────────
+const MAX_CONTEXT_MESSAGES = 10
+const SUMMARY_CHAR_BUDGET = 2000
+const SUMMARY_PROMPT = `Summarize the following skincare conversation concisely. Preserve key facts: user skin type, concerns mentioned, products discussed, and any recommendations given. Keep under 500 words.`
+
+function estimateTokens(text: string): number {
+  return Math.ceil(text.length / 4)
+}
+
+async function summarizeOlderMessages(
+  messages: { role: string; content: string }[],
+): Promise<string> {
+  const conversationText = messages
+    .map((m) => `${m.role}: ${m.content}`)
+    .join("\n")
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: env.openaiModel,
+      messages: [
+        { role: "system", content: SUMMARY_PROMPT },
+        { role: "user", content: conversationText },
+      ],
+      max_tokens: 300,
+      temperature: 0.3,
+    })
+    return response.choices[0]?.message?.content?.trim() ?? conversationText.slice(0, SUMMARY_CHAR_BUDGET)
+  } catch {
+    // Fallback: truncate older messages
+    return conversationText.slice(0, SUMMARY_CHAR_BUDGET)
+  }
+}
+
 function buildProductContextMessage(product: {
   name: string
   brandName: string | null
@@ -140,15 +173,21 @@ export async function createSession(
   };
 }
 
-export async function listSessions(userId: string): Promise<ServiceAdviceSession[]> {
+export async function listSessions(
+  userId: string,
+  limit = 20,
+  offset = 0,
+): Promise<{ sessions: ServiceAdviceSession[]; total: number }> {
   const { AdviceSession } = getModels();
 
-  const sessions = await AdviceSession.findAll({
+  const { rows, count } = await AdviceSession.findAndCountAll({
     where: { userId },
     order: [["createdAt", "DESC"]],
+    limit,
+    offset,
   });
 
-  return sessions.map((s) => ({
+  const sessions = rows.map((s) => ({
     id: s.id,
     userId: s.userId,
     title: s.title,
@@ -157,12 +196,16 @@ export async function listSessions(userId: string): Promise<ServiceAdviceSession
     createdAt: s.createdAt,
     updatedAt: s.updatedAt,
   }));
+
+  return { sessions, total: count };
 }
 
 export async function getSessionMessages(
   sessionId: string,
-  userId: string
-): Promise<ServiceAdviceMessage[]> {
+  userId: string,
+  limit = 50,
+  offset = 0,
+): Promise<{ messages: ServiceAdviceMessage[]; total: number }> {
   const { AdviceSession, AdviceMessage } = getModels();
 
   const session = await AdviceSession.findByPk(sessionId);
@@ -170,12 +213,14 @@ export async function getSessionMessages(
     throw new AdviceServiceError("ADVICE_SESSION_NOT_FOUND", 404, "Session not found");
   }
 
-  const messages = await AdviceMessage.findAll({
+  const { rows, count } = await AdviceMessage.findAndCountAll({
     where: { adviceSessionId: sessionId },
     order: [["createdAt", "ASC"]],
+    limit,
+    offset,
   });
 
-  return messages.map((m) => ({
+  const messages = rows.map((m) => ({
     id: m.id,
     adviceSessionId: m.adviceSessionId,
     role: m.role,
@@ -183,6 +228,8 @@ export async function getSessionMessages(
     metadata: m.metadata,
     createdAt: m.createdAt,
   }));
+
+  return { messages, total: count };
 }
 
 export async function sendMessageAndStream(
@@ -223,22 +270,41 @@ export async function sendMessageAndStream(
     order: [["createdAt", "ASC"]],
   });
 
+  const allMessages = history.map((m) => ({
+    role: m.role as "user" | "assistant" | "system",
+    content: m.content,
+  }));
+
+  // ── Sliding window with summary for long conversations ──
+  let contextMessages: OpenAI.ChatCompletionMessageParam[]
+  if (allMessages.length <= MAX_CONTEXT_MESSAGES) {
+    contextMessages = allMessages
+  } else {
+    const olderMessages = allMessages.slice(0, -MAX_CONTEXT_MESSAGES)
+    const recentMessages = allMessages.slice(-MAX_CONTEXT_MESSAGES)
+    const summary = await summarizeOlderMessages(olderMessages)
+    contextMessages = [
+      { role: "system", content: `Previous conversation summary:\n${summary}` },
+      ...recentMessages,
+    ]
+  }
+
   const messages: OpenAI.ChatCompletionMessageParam[] = [
     { role: "system", content: SYSTEM_PROMPT },
-    ...history.map((m) => ({
-      role: m.role as "user" | "assistant" | "system",
-      content: m.content,
-    })),
+    ...contextMessages,
   ];
 
   try {
-    const stream = await openai.chat.completions.create({
-      model: env.openaiModel,
-      messages,
-      stream: true,
-      max_tokens: 1024,
-      temperature: 0.7,
-    });
+    const stream = await openai.chat.completions.create(
+      {
+        model: env.openaiModel,
+        messages,
+        stream: true,
+        max_tokens: 1024,
+        temperature: 0.7,
+      },
+      { signal: AbortSignal.timeout(30_000) },
+    );
 
     let fullContent = "";
 
@@ -255,6 +321,13 @@ export async function sendMessageAndStream(
       role: "assistant",
       content: fullContent,
     });
+
+    // Token telemetry — log estimated usage for cost tracking
+    const estimatedPromptTokens = messages.reduce((sum, m) => sum + estimateTokens(typeof m.content === 'string' ? m.content : ''), 0)
+    const estimatedCompletionTokens = estimateTokens(fullContent)
+    console.log(
+      `[advice] session=${sessionId} promptTokens≈${estimatedPromptTokens} completionTokens≈${estimatedCompletionTokens} totalMessages=${allMessages.length} windowUsed=${contextMessages.length}`
+    )
 
     if (!session.title && fullContent.length > 0) {
       session.title = userContent.slice(0, 100);

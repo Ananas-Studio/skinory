@@ -78,6 +78,7 @@ export class AdviceSession extends Model<InferAttributes<AdviceSession>, InferCr
           { fields: ["user_id"] },
           { fields: ["guest_session_id"] },
           { fields: ["status"] },
+          { fields: ["user_id", "created_at"] },
         ],
       }
     );

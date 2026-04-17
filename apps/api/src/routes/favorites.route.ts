@@ -149,14 +149,20 @@ favoritesRouter.get("/", requireAuth, async (req, res) => {
 // ─── GET /favorites/ids ──────────────────────────────────────────────────────
 // Lightweight endpoint: returns only product IDs the user has favorited.
 
+const idsQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(1000).default(500),
+})
+
 favoritesRouter.get("/ids", requireAuth, async (req, res) => {
   try {
     const userId = req.authUserId as string
+    const { limit } = idsQuerySchema.parse(req.query)
     const { Favorite } = getModels()
 
     const rows = await Favorite.findAll({
       where: { userId },
       attributes: ["productId"],
+      limit,
       raw: true,
     })
 
@@ -164,6 +170,13 @@ favoritesRouter.get("/ids", requireAuth, async (req, res) => {
 
     res.status(200).json({ ok: true, data: { productIds } })
   } catch (error: unknown) {
+    if (error instanceof ZodError) {
+      res.status(400).json({
+        ok: false,
+        error: { code: "VALIDATION_FAILED", message: "Invalid query params", details: error.flatten() },
+      })
+      return
+    }
     console.error("GET /favorites/ids error:", error)
     res.status(500).json({
       ok: false,

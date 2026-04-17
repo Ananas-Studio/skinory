@@ -95,6 +95,7 @@ export class Scan extends Model<InferAttributes<Scan>, InferCreationAttributes<S
           { fields: ["guest_session_id"] },
           { fields: ["product_id"] },
           { fields: ["result_status"] },
+          { fields: ["user_id", "result_status", "created_at"] },
         ],
       }
     );

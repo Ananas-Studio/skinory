@@ -87,16 +87,20 @@ export async function addItem(
   return { id: item.id, alreadyExisted: false }
 }
 
-export async function listItems(userId: string): Promise<InventoryItemView[]> {
+export async function listItems(
+  userId: string,
+  limit = 50,
+  offset = 0,
+): Promise<{ items: InventoryItemView[]; total: number }> {
   const { Inventory, InventoryItem, Product, Brand } = getModels()
 
   const inventory = await Inventory.findOne({
     where: { userId, isActive: true },
   })
 
-  if (!inventory) return []
+  if (!inventory) return { items: [], total: 0 }
 
-  const items = await InventoryItem.findAll({
+  const { rows, count } = await InventoryItem.findAndCountAll({
     where: { inventoryId: inventory.id, status: "active" },
     include: [
       {
@@ -106,9 +110,11 @@ export async function listItems(userId: string): Promise<InventoryItemView[]> {
       },
     ],
     order: [["createdAt", "DESC"]],
+    limit,
+    offset,
   })
 
-  return items.map((item) => {
+  const items = rows.map((item) => {
     const product = (item as any).product
     return {
       id: item.id,
@@ -122,6 +128,8 @@ export async function listItems(userId: string): Promise<InventoryItemView[]> {
       createdAt: item.createdAt,
     }
   })
+
+  return { items, total: count }
 }
 
 export async function removeItem(userId: string, itemId: string): Promise<void> {

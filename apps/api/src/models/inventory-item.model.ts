@@ -93,6 +93,7 @@ export class InventoryItem extends Model<InferAttributes<InventoryItem>, InferCr
           { fields: ["product_id"] },
           // Intentionally non-unique to avoid blocking legitimate repurchases.
           { fields: ["inventory_id", "product_id", "status"] },
+          { fields: ["inventory_id", "status"] },
         ],
       }
     );

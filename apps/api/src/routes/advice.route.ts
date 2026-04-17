@@ -16,6 +16,16 @@ const sendMessageBodySchema = z.object({
   content: z.string().trim().min(1).max(2000),
 });
 
+const sessionsQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+  offset: z.coerce.number().int().min(0).default(0),
+});
+
+const messagesQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(200).default(50),
+  offset: z.coerce.number().int().min(0).default(0),
+});
+
 function respondAdviceError(res: Response, error: unknown): void {
   if (error instanceof ZodError) {
     res.status(400).json({
@@ -60,11 +70,12 @@ adviceRouter.post("/sessions", requireAuth, async (req, res) => {
 
 adviceRouter.get("/sessions", requireAuth, async (req, res) => {
   try {
-    const result = await listSessions(req.authUserId as string);
+    const { limit, offset } = sessionsQuerySchema.parse(req.query);
+    const { sessions, total } = await listSessions(req.authUserId as string, limit, offset);
 
     res.status(200).json({
       ok: true,
-      data: result,
+      data: { sessions, total, limit, offset },
     });
   } catch (error: unknown) {
     respondAdviceError(res, error);
@@ -74,11 +85,12 @@ adviceRouter.get("/sessions", requireAuth, async (req, res) => {
 adviceRouter.get("/sessions/:sessionId/messages", requireAuth, async (req, res) => {
   try {
     const sessionId = req.params.sessionId as string;
-    const result = await getSessionMessages(sessionId, req.authUserId as string);
+    const { limit, offset } = messagesQuerySchema.parse(req.query);
+    const { messages, total } = await getSessionMessages(sessionId, req.authUserId as string, limit, offset);
 
     res.status(200).json({
       ok: true,
-      data: result,
+      data: { messages, total, limit, offset },
     });
   } catch (error: unknown) {
     respondAdviceError(res, error);

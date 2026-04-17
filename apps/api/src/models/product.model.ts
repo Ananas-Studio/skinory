@@ -117,6 +117,7 @@ export class Product extends Model<InferAttributes<Product>, InferCreationAttrib
           { unique: true, fields: ["slug"] },
           { fields: ["brand_id"] },
           { fields: ["category"] },
+          { fields: ["is_active", "category"] },
         ],
       }
     );

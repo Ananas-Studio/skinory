@@ -15,6 +15,11 @@ const addItemSchema = z.object({
   source: z.enum(["scan", "url", "manual"]).default("scan"),
 })
 
+const listQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(200).default(50),
+  offset: z.coerce.number().int().min(0).default(0),
+})
+
 function respondInventoryError(res: Response, error: unknown): void {
   if (error instanceof ZodError) {
     res.status(400).json({
@@ -62,11 +67,12 @@ inventoryRouter.post("/items", requireAuth, async (req, res) => {
 inventoryRouter.get("/items", requireAuth, async (req, res) => {
   try {
     const userId = req.authUserId as string
-    const items = await listItems(userId)
+    const { limit, offset } = listQuerySchema.parse(req.query)
+    const { items, total } = await listItems(userId, limit, offset)
 
     res.status(200).json({
       ok: true,
-      data: items,
+      data: { items, total, limit, offset },
     })
   } catch (error: unknown) {
     respondInventoryError(res, error)
