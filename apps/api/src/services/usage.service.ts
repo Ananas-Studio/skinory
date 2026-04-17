@@ -85,8 +85,8 @@ export async function checkAndRecordUsage(
   const monthStart = startOfMonth()
 
   const [results] = await sequelize.query(
-    `INSERT INTO usage_logs (id, user_id, category, created_at, updated_at)
-     SELECT gen_random_uuid(), :userId, :category, NOW(), NOW()
+    `INSERT INTO usage_logs (id, user_id, category, created_at)
+     SELECT gen_random_uuid(), :userId, :category, NOW()
      WHERE (
        SELECT COUNT(*) FROM usage_logs
        WHERE user_id = :userId AND category = :category AND created_at >= :monthStart
