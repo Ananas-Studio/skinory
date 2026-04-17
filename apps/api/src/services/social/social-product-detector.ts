@@ -45,16 +45,19 @@ export async function detectProducts(text: string): Promise<DetectedProduct[]> {
   const openai = new OpenAI({ apiKey: env.openaiApiKey })
 
   try {
-    const completion = await openai.chat.completions.create({
-      model: env.openaiModel,
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: text.slice(0, 4000) },
-      ],
-      response_format: { type: "json_object" },
-      temperature: 0.1,
-      max_tokens: 1024,
-    })
+    const completion = await openai.chat.completions.create(
+      {
+        model: env.openaiModel,
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          { role: "user", content: text.slice(0, 4000) },
+        ],
+        response_format: { type: "json_object" },
+        temperature: 0.1,
+        max_tokens: 1024,
+      },
+      { signal: AbortSignal.timeout(30_000) },
+    )
 
     const raw = completion.choices[0]?.message?.content?.trim()
     if (!raw) return []

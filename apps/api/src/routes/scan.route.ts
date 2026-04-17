@@ -4,6 +4,8 @@ import multer from 'multer'
 import { parseIngredientString } from '@skinory/core'
 import { requireAuth } from '../middlewares/auth.middleware.js'
 import { checkUsage, recordUsageFromReq } from '../middlewares/usage.middleware.js'
+import { concurrencyGuard } from '../middlewares/concurrency.middleware.js'
+import { strictLimiter } from '../middlewares/rate-limit.middleware.js'
 import {
   evaluateProduct,
   EvaluationServiceError,
@@ -47,7 +49,7 @@ const evaluateSchema = z.object({
   productId: z.string().uuid(),
 })
 
-scanRouter.post('/evaluate', checkUsage('ai_evaluation'), async (req: Request, res: Response) => {
+scanRouter.post('/evaluate', strictLimiter, checkUsage('ai_evaluation'), async (req: Request, res: Response) => {
   try {
     const body = evaluateSchema.parse(req.body)
     const userId = (req as any).authUserId as string
@@ -270,7 +272,7 @@ scanRouter.post('/resolve', checkUsage('scan_resolve'), async (req: Request, res
 
 // ─── POST /scan/ocr-ingredients ─────────────────────────────────────────────
 
-scanRouter.post('/ocr-ingredients', upload.single('image'), async (req: Request, res: Response) => {
+scanRouter.post('/ocr-ingredients', strictLimiter, checkUsage('scan_ocr'), concurrencyGuard(), upload.single('image'), async (req: Request, res: Response) => {
   try {
     const file = req.file
     if (!file) {
@@ -452,7 +454,7 @@ scanRouter.post('/create-product', async (req: Request, res: Response) => {
 
 // ─── POST /scan/recognize-image ─────────────────────────────────────────────
 
-scanRouter.post('/recognize-image', upload.single('image'), async (req: Request, res: Response) => {
+scanRouter.post('/recognize-image', strictLimiter, checkUsage('scan_image_recognize'), concurrencyGuard(), upload.single('image'), async (req: Request, res: Response) => {
   try {
     const file = req.file
     if (!file) {

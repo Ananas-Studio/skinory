@@ -41,24 +41,27 @@ export class VisionOcrProvider implements OcrProvider {
 
     const base64Image = imageBuffer.toString('base64')
 
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      max_tokens: 1500,
-      temperature: 0,
-      messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'image_url',
-              image_url: { url: `data:image/jpeg;base64,${base64Image}`, detail: 'high' },
-            },
-            { type: 'text', text: 'Extract the ingredient list from this product image.' },
-          ],
-        },
-      ],
-    })
+    const response = await openai.chat.completions.create(
+      {
+        model: 'gpt-4o-mini',
+        max_tokens: 1500,
+        temperature: 0,
+        messages: [
+          { role: 'system', content: SYSTEM_PROMPT },
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'image_url',
+                image_url: { url: `data:image/jpeg;base64,${base64Image}`, detail: 'high' },
+              },
+              { type: 'text', text: 'Extract the ingredient list from this product image.' },
+            ],
+          },
+        ],
+      },
+      { signal: AbortSignal.timeout(30_000) },
+    )
 
     const text = response.choices[0]?.message?.content?.trim() ?? ''
     const elapsed = (performance.now() - start).toFixed(0)

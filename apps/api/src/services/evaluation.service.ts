@@ -213,16 +213,19 @@ ${userContext}
 
   let parsed: any
   try {
-    const completion = await openai.chat.completions.create({
-      model: env.openaiModel,
-      messages: [
-        { role: 'system', content: EVALUATION_SYSTEM_PROMPT },
-        { role: 'user', content: userMessage },
-      ],
-      temperature: 0.3,
-      max_tokens: 800,
-      response_format: { type: 'json_object' },
-    })
+    const completion = await openai.chat.completions.create(
+      {
+        model: env.openaiModel,
+        messages: [
+          { role: 'system', content: EVALUATION_SYSTEM_PROMPT },
+          { role: 'user', content: userMessage },
+        ],
+        temperature: 0.3,
+        max_tokens: 800,
+        response_format: { type: 'json_object' },
+      },
+      { signal: AbortSignal.timeout(30_000) },
+    )
 
     const raw = completion.choices[0]?.message?.content ?? '{}'
     parsed = JSON.parse(raw)

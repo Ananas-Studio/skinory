@@ -89,24 +89,27 @@ async function extractFieldsWithVision(imageBuffer: Buffer): Promise<ExtractedFi
   const base64Image = imageBuffer.toString('base64')
   const mimeType = 'image/jpeg'
 
-  const response = await openai.chat.completions.create({
-    model: 'gpt-4o-mini',
-    max_tokens: 500,
-    temperature: 0,
-    messages: [
-      { role: 'system', content: VISION_SYSTEM_PROMPT },
-      {
-        role: 'user',
-        content: [
-          {
-            type: 'image_url',
-            image_url: { url: `data:${mimeType};base64,${base64Image}`, detail: 'low' },
-          },
-          { type: 'text', text: 'Identify this product.' },
-        ],
-      },
-    ],
-  })
+  const response = await openai.chat.completions.create(
+    {
+      model: 'gpt-4o-mini',
+      max_tokens: 500,
+      temperature: 0,
+      messages: [
+        { role: 'system', content: VISION_SYSTEM_PROMPT },
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'image_url',
+              image_url: { url: `data:${mimeType};base64,${base64Image}`, detail: 'low' },
+            },
+            { type: 'text', text: 'Identify this product.' },
+          ],
+        },
+      ],
+    },
+    { signal: AbortSignal.timeout(30_000) },
+  )
 
   const raw = response.choices[0]?.message?.content?.trim() ?? ''
 

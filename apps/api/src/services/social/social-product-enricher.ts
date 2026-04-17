@@ -12,6 +12,22 @@ import { sequelize } from "../../config/database.js"
 import { getModels } from "../../models/index.js"
 import { slugify } from "../product-lookup.service.js"
 import { parseIngredientString } from "@skinory/core"
+import { Semaphore } from "../../lib/semaphore.js"
+import { TtlCache } from "../../lib/ttl-cache.js"
+
+// ─── Fan-out controls ────────────────────────────────────────────────────────
+const obfSemaphore = new Semaphore(3)
+const obfCache = new TtlCache<ObfProduct[]>(5 * 60 * 1000) // 5-minute TTL
+
+async function throttledObfSearch(query: string, limit: number): Promise<ObfProduct[]> {
+  const cacheKey = query.toLowerCase().trim()
+  const cached = obfCache.get(cacheKey)
+  if (cached) return cached
+
+  const results = await obfSemaphore.run(() => searchObfByName(query, limit))
+  obfCache.set(cacheKey, results)
+  return results
+}
 
 // ─── Public types ────────────────────────────────────────────────────────────
 
@@ -144,9 +160,15 @@ export async function enrichProducts(
     .map((dp) => [dp.brand, dp.name].filter(Boolean).join(" "))
     .filter((q) => q.length > 0)
 
-  const [dbMatches, ...obfResults] = await Promise.all([
-    matchProducts(detected),
-    ...obfQueries.map((q) => searchObfByName(q, 3)),
+  // ── Run DB match + OBF search with concurrency control ─────────────────
+  const dbMatchesPromise = matchProducts(detected)
+  const obfResultsPromise = Promise.all(
+    obfQueries.map((q) => throttledObfSearch(q, 3)),
+  )
+
+  const [dbMatches, obfResults] = await Promise.all([
+    dbMatchesPromise,
+    obfResultsPromise,
   ])
 
   // ── Build enriched list from DB matches first ──────────────────────────

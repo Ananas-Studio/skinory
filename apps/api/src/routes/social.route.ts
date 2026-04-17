@@ -20,7 +20,7 @@ const scrapeBodySchema = z.object({
 })
 
 const detectBodySchema = z.object({
-  text: z.string().trim().min(1),
+  text: z.string().trim().min(1).max(10000),
 })
 
 const enrichBodySchema = z.object({
@@ -28,13 +28,13 @@ const enrichBodySchema = z.object({
     brand: z.string().nullable(),
     name: z.string().nullable(),
     confidence: z.number().min(0).max(1),
-  })).min(1),
+  })).min(1).max(10),
 })
 
 // ─── POST /social/scrape ─────────────────────────────────────────────────────
 // Step 1: Parse URL + read social content (oEmbed / OG tags)
 
-socialRouter.post("/scrape", requireAuth, async (req, res) => {
+socialRouter.post("/scrape", requireAuth, checkUsage("social_scrape"), async (req, res) => {
   try {
     const parseResult = scrapeBodySchema.safeParse(req.body)
     if (!parseResult.success) {
@@ -159,7 +159,7 @@ socialRouter.post("/detect", requireAuth, checkUsage("ai_social_detect"), async 
 // ─── POST /social/enrich ─────────────────────────────────────────────────────
 // Step 3: Match detected products against internal DB + Open Beauty Facts
 
-socialRouter.post("/enrich", requireAuth, async (req, res) => {
+socialRouter.post("/enrich", requireAuth, checkUsage("social_enrich"), async (req, res) => {
   try {
     const parseResult = enrichBodySchema.safeParse(req.body)
     if (!parseResult.success) {
