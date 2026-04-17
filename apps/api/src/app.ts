@@ -3,6 +3,7 @@ import swaggerUi from "swagger-ui-express";
 import { getHealthPayload } from "./services/health.service.js";
 import { openApiDocument } from "./docs/swagger.js";
 import { router } from "./routes/index.js";
+import { globalLimiter } from "./middlewares/rate-limit.middleware.js";
 
 const app = express();
 
@@ -23,7 +24,8 @@ app.use((_req, res, next) => {
   next()
 })
 
-app.use(express.json());
+app.use(express.json({ limit: "1mb" }));
+app.use(globalLimiter);
 
 app.get("/health", (_req, res) => {
   res.status(200).json({ ok: true, data: getHealthPayload() });

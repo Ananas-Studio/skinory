@@ -7,7 +7,11 @@ export const USAGE_CATEGORIES = [
   "ai_advice",
   "ai_social_detect",
   "scan_resolve",
+  "scan_ocr",
+  "scan_image_recognize",
   "routine_generate",
+  "social_scrape",
+  "social_enrich",
 ] as const
 
 export type UsageCategory = (typeof USAGE_CATEGORIES)[number]
@@ -17,7 +21,11 @@ export const USAGE_CATEGORY_LABELS: Record<UsageCategory, string> = {
   ai_advice: "AI Skincare Adviser",
   ai_social_detect: "AI Social Scan",
   scan_resolve: "Product Scan",
+  scan_ocr: "OCR Scan",
+  scan_image_recognize: "Image Recognition Scan",
   routine_generate: "Routine Generation",
+  social_scrape: "Social Scrape",
+  social_enrich: "Social Enrich",
 }
 
 export interface TierLimits {
@@ -25,7 +33,11 @@ export interface TierLimits {
   ai_advice: number
   ai_social_detect: number
   scan_resolve: number
+  scan_ocr: number
+  scan_image_recognize: number
   routine_generate: number
+  social_scrape: number
+  social_enrich: number
 }
 
 export interface SubscriptionTier {
@@ -45,7 +57,11 @@ export const SUBSCRIPTION_TIERS: Record<string, SubscriptionTier> = {
       ai_advice: 5,
       ai_social_detect: 10,
       scan_resolve: 100,
+      scan_ocr: 20,
+      scan_image_recognize: 20,
       routine_generate: 10,
+      social_scrape: 30,
+      social_enrich: 20,
     },
   },
 }
@@ -75,5 +91,11 @@ export function isLimitExceeded(used: number, limit: number): boolean {
 }
 
 export function isAiCategory(category: UsageCategory): boolean {
-  return category === "ai_evaluation" || category === "ai_advice" || category === "ai_social_detect"
+  return (
+    category === "ai_evaluation" ||
+    category === "ai_advice" ||
+    category === "ai_social_detect" ||
+    category === "scan_ocr" ||
+    category === "scan_image_recognize"
+  )
 }

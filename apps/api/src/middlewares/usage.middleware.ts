@@ -1,10 +1,9 @@
 import { NextFunction, Request, Response } from "express"
 import type { UsageCategory } from "@skinory/core"
-import { checkLimit, recordUsage } from "../services/usage.service.js"
+import { checkAndRecordUsage } from "../services/usage.service.js"
 
 // ─── Usage Check Middleware ──────────────────────────────────────────────────
-// Validates usage limit BEFORE the handler runs.
-// If within limit, attaches a helper to record usage after success.
+// Atomically checks the monthly limit AND records usage in a single operation.
 
 export function checkUsage(category: UsageCategory) {
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
@@ -18,13 +17,7 @@ export function checkUsage(category: UsageCategory) {
         return
       }
 
-      await checkLimit(userId, category)
-
-      // Attach helper so the route handler can record usage on success
-      ;(req as unknown as Record<string, unknown>)._recordUsage = async (metadata?: Record<string, unknown>) => {
-        await recordUsage(userId, category, metadata)
-      }
-
+      await checkAndRecordUsage(userId, category)
       next()
     } catch (err: unknown) {
       const e = err as { statusCode?: number; code?: string; message?: string }
@@ -46,11 +39,7 @@ export function checkUsage(category: UsageCategory) {
   }
 }
 
-// ─── Helper to call from route handlers ──────────────────────────────────────
-
-export async function recordUsageFromReq(req: Request): Promise<void> {
-  const fn = (req as unknown as Record<string, unknown>)._recordUsage as
-    | ((meta?: Record<string, unknown>) => Promise<void>)
-    | undefined
-  if (fn) await fn()
+// Kept for backward compatibility — usage is now recorded atomically in checkUsage
+export async function recordUsageFromReq(_req: Request): Promise<void> {
+  // No-op: usage is now recorded atomically in checkAndRecordUsage
 }
