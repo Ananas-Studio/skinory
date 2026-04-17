@@ -181,7 +181,7 @@ function HomeScreen() {
   return (
     <div className={`font-[Geist,'Avenir_Next','Segoe_UI',sans-serif]`}>
       <div className='bg-[#FEE7E1]'>
-        <div className='p-4 pb-3 flex flex-row gap-6'>
+        <div className='p-4 pb-3 flex flex-row justify-between gap-6'>
           <div className='flex flex-col gap-2'>
             <p className='text-foreground text-2xl font-medium' style={{ letterSpacing: -0.6 }}>Welcome Back <span className='text-[#EE886E]'>{user?.fullName?.split(' ')[0] ?? 'there'}!</span></p>
             <p className='text-muted-foreground text-sm leading-[100%]'>
