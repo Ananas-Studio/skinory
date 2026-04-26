@@ -110,32 +110,20 @@ body {
 	animation: scan-line 2.5s ease-in-out infinite;
 }
 
-/* html5-qrcode overrides — the library sets inline styles (width/height in px)
-   on the container and its children, which break our absolute-fill layout. */
+/* Scanner container — direct getUserMedia <video> fills the viewport. */
 #barcode-scanner {
-	position: absolute !important;
-	inset: 0 !important;
-	width: 100% !important;
-	height: 100% !important;
-	overflow: hidden !important;
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	overflow: hidden;
 	background: black;
 }
 
-#barcode-scanner > div {
-	width: 100% !important;
-	height: 100% !important;
-}
-
 #barcode-scanner video {
-	width: 100% !important;
-	height: 100% !important;
-	object-fit: cover !important;
-}
-
-/* Hide the library's own scanning-region overlay / shaded region */
-#barcode-scanner img[alt="Info"],
-#barcode-scanner > div > div:not(:first-child) {
-	display: none !important;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
 }
 
 .animate-flash {

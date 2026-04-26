@@ -132,7 +132,7 @@ function ScanScreen() {
   }
 
   async function handlePhotoCapture() {
-    // Grab the live video element rendered by html5-qrcode inside the scanner container
+    // Grab the live video element inside the scanner container
     const container = document.getElementById(SCANNER_CONTAINER_ID)
     const video = container?.querySelector('video')
     if (!video || video.readyState < 2) {
@@ -270,14 +270,12 @@ function ScanScreen() {
 
   return (
     <main className="relative flex h-dvh flex-col overflow-hidden bg-black text-white [font-family:Geist,'Avenir_Next','Segoe_UI',sans-serif]">
-      {/* Camera preview — html5-qrcode renders its video element here.
-          Sizing is forced via #barcode-scanner rules in index.css because
-          the library sets inline styles that override Tailwind classes. */}
+      {/* Camera preview — BarcodeDetector provider renders a <video> here. */}
       <div id={SCANNER_CONTAINER_ID} />
 
       {/* Scanning frame overlay */}
       <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
-        <div className="relative h-[260px] w-[260px]">
+        <div className="relative h-[180px] w-[300px]">
           {/* Corner accents */}
           <div className="absolute -top-px -left-px h-8 w-8 rounded-tl-2xl border-t-[3px] border-l-[3px] border-white" />
           <div className="absolute -top-px -right-px h-8 w-8 rounded-tr-2xl border-t-[3px] border-r-[3px] border-white" />
