@@ -127,7 +127,18 @@ function ScanScreen() {
 
   function handleNeedsIngredients() {
     if (lookupResult) {
-      navigate('/scan/ingredients', { state: { productId: lookupResult.product.id, product: lookupResult.product } })
+      navigate('/scan/ingredients', {
+        state: {
+          productId: lookupResult.product.id,
+          productName: lookupResult.product.name,
+          barcode: lookupResult.product.barcode,
+          prefill: {
+            brand: lookupResult.product.brand,
+            name: lookupResult.product.name,
+            attributes: [],
+          },
+        },
+      })
     }
   }
 

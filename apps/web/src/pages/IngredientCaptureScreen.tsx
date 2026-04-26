@@ -32,6 +32,13 @@ interface LocationState {
     name: string | null
     attributes: string[]
   }
+  /** Legacy: raw product object from ScanScreen (fallback) */
+  product?: {
+    id?: string
+    name?: string | null
+    barcode?: string
+    brand?: string | null
+  }
 }
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
@@ -79,10 +86,10 @@ function IngredientCaptureScreen() {
   const userId = user!.id
   const state = location.state as LocationState | null
 
-  const productId = state?.productId ?? ''
-  const productName = state?.prefill?.name ?? state?.productName ?? 'Unknown Product'
-  const barcode = state?.barcode ?? ''
-  const prefill = state?.prefill ?? null
+  const productId = state?.productId ?? state?.product?.id ?? ''
+  const productName = state?.prefill?.name ?? state?.productName ?? state?.product?.name ?? 'Unknown Product'
+  const barcode = state?.barcode ?? state?.product?.barcode ?? ''
+  const prefill = state?.prefill ?? (state?.product ? { brand: state.product.brand ?? null, name: state.product.name ?? null, attributes: [] } : null)
 
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
@@ -176,12 +183,8 @@ function IngredientCaptureScreen() {
     const video = videoRef.current
     if (!video || video.readyState < 2) return
 
-    // Stop camera stream before processing
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((t) => t.stop())
-      streamRef.current = null
-    }
-
+    // Capture frame BEFORE stopping the camera — on mobile, stopping tracks
+    // can blank the video element immediately.
     const canvas = document.createElement('canvas')
     canvas.width = video.videoWidth
     canvas.height = video.videoHeight
@@ -189,11 +192,23 @@ function IngredientCaptureScreen() {
     if (!ctx) return
     ctx.drawImage(video, 0, 0)
 
+    // Now safe to stop the camera stream.
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop())
+      streamRef.current = null
+    }
+
     canvas.toBlob(
       (blob) => {
-        if (!blob) return
+        if (!blob) {
+          toast.error('Failed to capture photo. Please try again.')
+          return
+        }
         const file = new File([blob], 'ingredient-photo.jpg', { type: 'image/jpeg' })
-        processFile(file)
+        processFile(file).catch((err) => {
+          console.error('[IngredientCapture] processFile error:', err)
+          toast.error('Something went wrong processing the photo')
+        })
       },
       'image/jpeg',
       0.92,
