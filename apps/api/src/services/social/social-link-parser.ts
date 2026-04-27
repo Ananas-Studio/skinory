@@ -86,12 +86,14 @@ const PLATFORM_RULES: PlatformRule[] = [
       /(?:www\.)?amazon\.[a-z]{2,3}(?:\.[a-z]{2})?/i,
       /(?:www\.)?amzn\.to/i,
       /(?:www\.)?amzn\.eu/i,
+      /(?:www\.)?a\.co/i,
     ],
     resourceExtractors: [
       { pattern: /\/dp\/([A-Z0-9]{10})/, type: "product", idGroup: 1 },
       { pattern: /\/gp\/product\/([A-Z0-9]{10})/, type: "product", idGroup: 1 },
       { pattern: /\/gp\/aw\/d\/([A-Z0-9]{10})/, type: "product", idGroup: 1 },
-      // Short link fallback (amzn.to/xxxxx)
+      // Short link fallback (amzn.to/xxxxx, a.co/d/xxxxx)
+      { pattern: /\/d\/([A-Za-z0-9]+)\/?$/, type: "product", idGroup: 1 },
       { pattern: /\/([A-Za-z0-9]+)\/?$/, type: "product", idGroup: 1 },
     ],
   },

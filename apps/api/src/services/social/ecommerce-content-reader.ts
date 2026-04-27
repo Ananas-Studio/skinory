@@ -672,6 +672,64 @@ function extractNoon(html: string, url: string): EcommerceProduct {
   return product
 }
 
+// ─── Amazon short-URL resolver ───────────────────────────────────────────────
+// amzn.to, amzn.eu, a.co short links redirect to full Amazon product URLs.
+// We resolve them via a HEAD request (follow redirects) to get the real URL
+// so we can extract the ASIN for search-page fallback strategies.
+
+const AMAZON_SHORT_DOMAINS = ["amzn.to", "amzn.eu", "a.co"]
+
+function isAmazonShortUrl(url: string): boolean {
+  try {
+    const hostname = new URL(url).hostname.toLowerCase()
+    return AMAZON_SHORT_DOMAINS.some((d) => hostname === d || hostname === `www.${d}`)
+  } catch {
+    return false
+  }
+}
+
+async function resolveAmazonShortUrl(shortUrl: string): Promise<string> {
+  try {
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), 10_000)
+    const res = await fetch(shortUrl, {
+      method: "HEAD",
+      redirect: "follow",
+      signal: controller.signal,
+      headers: { "User-Agent": randomUA() },
+    })
+    clearTimeout(timer)
+    const resolved = res.url
+    if (resolved && resolved !== shortUrl) {
+      console.info(`[ecommerce-content-reader] Resolved short URL: ${shortUrl} → ${resolved}`)
+      return resolved
+    }
+  } catch (err) {
+    // HEAD may fail on some servers — try GET with redirect tracking
+    try {
+      const controller = new AbortController()
+      const timer = setTimeout(() => controller.abort(), 10_000)
+      const res = await fetch(shortUrl, {
+        redirect: "follow",
+        signal: controller.signal,
+        headers: {
+          "User-Agent": randomUA(),
+          "Accept": "text/html",
+        },
+      })
+      clearTimeout(timer)
+      const resolved = res.url
+      if (resolved && resolved !== shortUrl) {
+        console.info(`[ecommerce-content-reader] Resolved short URL (GET): ${shortUrl} → ${resolved}`)
+        return resolved
+      }
+    } catch {
+      console.warn(`[ecommerce-content-reader] Failed to resolve short URL: ${shortUrl}`)
+    }
+  }
+  return shortUrl
+}
+
 // ─── Amazon fallback via search page ─────────────────────────────────────────
 // Amazon product pages aggressively block datacenter IPs. Search result pages
 // are far less restrictive. When the product page is blocked, search for the
@@ -747,32 +805,38 @@ function extractAmazonSearchResult(html: string, asin: string, url: string): Eco
 // ─── Amazon fallback orchestrator ────────────────────────────────────────────
 
 async function fetchAmazonWithFallback(originalUrl: string): Promise<{ html: string | null; searchProduct: EcommerceProduct | null }> {
+  // Step 0: Resolve short URLs (amzn.to, amzn.eu, a.co) to full Amazon URLs
+  let resolvedUrl = originalUrl
+  if (isAmazonShortUrl(originalUrl)) {
+    resolvedUrl = await resolveAmazonShortUrl(originalUrl)
+  }
+
   // Strategy 1: direct product page fetch
-  const html = await fetchPage(originalUrl)
+  const html = await fetchPage(resolvedUrl)
   if (html) return { html, searchProduct: null }
 
   // Strategy 2: Amazon search page scraping (less protected than product pages)
-  const asin = extractAsin(originalUrl)
-  if (!asin) return { html: null, searchProduct: null }
-
-  console.warn(`[ecommerce-content-reader] Direct fetch blocked, trying Amazon search pages for ASIN ${asin}`)
-  for (const domain of ["www.amazon.com", ...AMAZON_FALLBACK_DOMAINS]) {
-    if (domain === "www.amazon.com" || !originalUrl.includes(domain)) {
-      const searchUrl = `https://${domain}/s?k=${asin}`
-      const searchHtml = await fetchPage(searchUrl)
-      if (searchHtml) {
-        const searchProduct = extractAmazonSearchResult(searchHtml, asin, originalUrl)
-        if (searchProduct?.name) {
-          console.info(`[ecommerce-content-reader] Got product from ${domain} search: ${searchProduct.name}`)
-          return { html: null, searchProduct }
+  const asin = extractAsin(resolvedUrl)
+  if (asin) {
+    console.warn(`[ecommerce-content-reader] Direct fetch blocked, trying Amazon search pages for ASIN ${asin}`)
+    for (const domain of ["www.amazon.com", ...AMAZON_FALLBACK_DOMAINS]) {
+      if (domain === "www.amazon.com" || !resolvedUrl.includes(domain)) {
+        const searchUrl = `https://${domain}/s?k=${asin}`
+        const searchHtml = await fetchPage(searchUrl)
+        if (searchHtml) {
+          const searchProduct = extractAmazonSearchResult(searchHtml, asin, resolvedUrl)
+          if (searchProduct?.name) {
+            console.info(`[ecommerce-content-reader] Got product from ${domain} search: ${searchProduct.name}`)
+            return { html: null, searchProduct }
+          }
         }
       }
     }
   }
 
-  // Strategy 3: ScrapingBee (bypasses Amazon bot protection)
-  console.warn(`[ecommerce-content-reader] Amazon: trying ScrapingBee fallback for ${originalUrl}`)
-  const sbHtml = await fetchViaScrapingBee(originalUrl)
+  // Strategy 3: ScrapingBee with JS rendering (bypasses Amazon bot protection)
+  console.warn(`[ecommerce-content-reader] Amazon: trying ScrapingBee fallback for ${resolvedUrl}`)
+  const sbHtml = await fetchViaScrapingBee(resolvedUrl, { renderJs: true })
   if (sbHtml) return { html: sbHtml, searchProduct: null }
 
   return { html: null, searchProduct: null }
@@ -895,8 +959,14 @@ export async function readEcommerceProduct(
   url: string,
 ): Promise<EcommerceProduct> {
   if (platform === "amazon") {
+    // Resolve short URLs before processing
+    let resolvedUrl = url
+    if (isAmazonShortUrl(url)) {
+      resolvedUrl = await resolveAmazonShortUrl(url)
+    }
+
     // Amazon uses multi-strategy fallback: direct page → search results → ScrapingBee
-    const { html, searchProduct } = await fetchAmazonWithFallback(url)
+    const { html, searchProduct } = await fetchAmazonWithFallback(resolvedUrl)
     if (searchProduct) {
       if (searchProduct.name) searchProduct.name = decodeHtmlEntities(searchProduct.name).trim()
       if (searchProduct.brand) searchProduct.brand = decodeHtmlEntities(searchProduct.brand).trim()
@@ -904,7 +974,7 @@ export async function readEcommerceProduct(
     }
 
     if (html) {
-      const product = extractAmazon(html, url)
+      const product = extractAmazon(html, resolvedUrl)
       if (product.name) {
         product.name = decodeHtmlEntities(product.name).trim()
         if (product.brand) product.brand = decodeHtmlEntities(product.brand).trim()
@@ -914,9 +984,9 @@ export async function readEcommerceProduct(
       console.warn(`[ecommerce-content-reader] Amazon: direct HTML extraction found no product name, trying ScrapingBee`)
     }
 
-    const sbHtml = await fetchViaScrapingBee(url)
+    const sbHtml = await fetchViaScrapingBee(resolvedUrl, { renderJs: true })
     if (sbHtml) {
-      const product = extractAmazon(sbHtml, url)
+      const product = extractAmazon(sbHtml, resolvedUrl)
       if (product.name) {
         product.name = decodeHtmlEntities(product.name).trim()
         if (product.brand) product.brand = decodeHtmlEntities(product.brand).trim()
@@ -925,7 +995,7 @@ export async function readEcommerceProduct(
       }
     }
 
-    return { ...EMPTY_PRODUCT, url }
+    return { ...EMPTY_PRODUCT, url: resolvedUrl }
   }
 
   if (platform === "hepsiburada") {
