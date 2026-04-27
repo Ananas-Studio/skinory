@@ -11,6 +11,10 @@ param suffix string = uniqueString(resourceGroup().id)
 @secure()
 param openaiApiKey string
 
+@description('ScrapingBee API key for e-commerce product scraping')
+@secure()
+param scrapingbeeApiKey string = ''
+
 @description('PostgreSQL admin password')
 @secure()
 param dbPassword string
@@ -151,6 +155,7 @@ resource apiApp 'Microsoft.App/containerApps@2024-03-01' = if (deployApps) {
         { name: 'acr-password', value: acr.listCredentials().passwords[0].value }
         { name: 'database-url', value: dbConnectionString }
         { name: 'openai-api-key', value: openaiApiKey }
+        { name: 'scrapingbee-api-key', value: scrapingbeeApiKey }
         { name: 'azure-storage-conn', value: storageConnectionString }
       ]
     }
@@ -169,6 +174,7 @@ resource apiApp 'Microsoft.App/containerApps@2024-03-01' = if (deployApps) {
             { name: 'DB_SYNC_FORCE', value: 'false' }
             { name: 'OPENAI_API_KEY', secretRef: 'openai-api-key' }
             { name: 'OPENAI_MODEL', value: 'gpt-4o-mini' }
+            { name: 'SCRAPINGBEE_API_KEY', secretRef: 'scrapingbee-api-key' }
             { name: 'AZURE_STORAGE_CONNECTION_STRING', secretRef: 'azure-storage-conn' }
           ]
           probes: [

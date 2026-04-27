@@ -10,7 +10,7 @@ set -euo pipefail
 
 # ─── Configuration ───
 RESOURCE_GROUP="rg-skinory"
-LOCATION="swedencentral"
+LOCATION="francecentral"
 IMAGE_TAG="${2:-latest}"
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
@@ -50,6 +50,10 @@ setup() {
   # Prompt for secrets if not set
   if [ -z "${OPENAI_API_KEY:-}" ]; then
     read -rsp "Enter your OpenAI API key: " OPENAI_API_KEY
+    echo
+  fi
+  if [ -z "${SCRAPINGBEE_API_KEY:-}" ]; then
+    read -rsp "Enter your ScrapingBee API key (or press Enter to skip): " SCRAPINGBEE_API_KEY
     echo
   fi
 
@@ -92,6 +96,7 @@ setup() {
     --template-file "$REPO_ROOT/infra/main.bicep" \
     --parameters \
       openaiApiKey="$OPENAI_API_KEY" \
+      scrapingbeeApiKey="${SCRAPINGBEE_API_KEY:-}" \
       dbPassword="$DB_PASSWORD" \
       imageTag="$IMAGE_TAG" \
       deployApps=false \
@@ -153,6 +158,10 @@ deploy_apps() {
     read -rsp "Enter your OpenAI API key: " OPENAI_API_KEY
     echo
   fi
+  if [ -z "${SCRAPINGBEE_API_KEY:-}" ]; then
+    read -rsp "Enter your ScrapingBee API key (or press Enter to skip): " SCRAPINGBEE_API_KEY
+    echo
+  fi
 
   # Check if DB server exists — require existing password, never generate a new one here
   local db_exists
@@ -184,6 +193,7 @@ deploy_apps() {
     --template-file "$REPO_ROOT/infra/main.bicep" \
     --parameters \
       openaiApiKey="$OPENAI_API_KEY" \
+      scrapingbeeApiKey="${SCRAPINGBEE_API_KEY:-}" \
       dbPassword="$DB_PASSWORD" \
       imageTag="$IMAGE_TAG" \
       deployApps=true \
@@ -244,7 +254,8 @@ case "${1:-help}" in
     echo "  status   - Show deployed resources"
     echo ""
     echo "Environment variables:"
-    echo "  OPENAI_API_KEY  - Required for API service"
-    echo "  DB_PASSWORD     - PostgreSQL password (auto-generated if not set)"
+    echo "  OPENAI_API_KEY      - Required for API service"
+    echo "  SCRAPINGBEE_API_KEY - Required for e-commerce product scraping"
+    echo "  DB_PASSWORD         - PostgreSQL password (auto-generated if not set)"
     ;;
 esac
